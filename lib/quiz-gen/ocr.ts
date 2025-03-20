@@ -9,7 +9,7 @@ const apiKey = process.env.MISTRAL_API_KEY;
 
 const client = new Mistral({apiKey: apiKey});
 
-const uploaded_file = fs.readFileSync('./aiayn.pdf');
+const uploaded_file = fs.readFileSync('./contoh.pdf');
 const uploaded_pdf = await client.files.upload({
     file: {
         fileName: "aiayn.pdf",
