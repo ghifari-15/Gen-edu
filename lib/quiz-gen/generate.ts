@@ -35,11 +35,16 @@ Generate the quiz only from the given input—do not add explanations or additio
 const Difficulty = "Hard";
 const NumberOfQuestions = 10;
 
-const message = new HumanMessage(`
-  Difficulty: ${Difficulty},
-  NumberOfQuestions: ${NumberOfQuestions},
-  Material: ${extractedMarkdown}
-  `);
+async function generateQuiz() {
+  const message = new HumanMessage(`
+    Difficulty: ${Difficulty},
+    NumberOfQuestions: ${NumberOfQuestions},
+    Material: ${extractedMarkdown}
+    `);
 
-const response = model.invoke([system, message]);
-console.log(response);
+  const response = await model.invoke([system, message]);
+  console.log(response);
+}
+
+// Call the function with error handling
+generateQuiz().catch(error => console.error("Error generating quiz:", error));
