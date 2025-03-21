@@ -33,7 +33,7 @@ Generate the quiz only from the given input—do not add explanations or additio
 `);
 
 const Difficulty = "Hard";
-const NumberOfQuestions = 10;
+const NumberOfQuestions = 5;
 
 async function generateQuiz() {
   const message = new HumanMessage(`
