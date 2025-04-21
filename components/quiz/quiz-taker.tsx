@@ -7,11 +7,28 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, ArrowRight, Clock } from "lucide-react"
 
-export function QuizTaker({ quiz }) {
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
-  const [selectedAnswers, setSelectedAnswers] = useState({})
-  const [timeSpent, setTimeSpent] = useState(0)
-  const [isCompleted, setIsCompleted] = useState(false)
+interface Question {
+  id: string;
+  text: string;
+  options: string[];
+  correctAnswer: number;
+}
+
+interface QuizProps {
+  id: string;
+  title: string;
+  questions: Question[];
+}
+
+interface SelectedAnswersType {
+  [questionId: string]: number;
+}
+
+export function QuizTaker({ quiz }: { quiz: QuizProps }) {
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0)
+  const [selectedAnswers, setSelectedAnswers] = useState<SelectedAnswersType>({})
+  const [timeSpent, setTimeSpent] = useState<number>(0)
+  const [isCompleted, setIsCompleted] = useState<boolean>(false)
   const router = useRouter()
 
   const currentQuestion = quiz.questions[currentQuestionIndex]
@@ -25,26 +42,26 @@ export function QuizTaker({ quiz }) {
     return () => clearInterval(timer)
   }, [])
 
-  const formatTime = (seconds) => {
+  const formatTime = (seconds: number): string => {
     const minutes = Math.floor(seconds / 60)
     const remainingSeconds = seconds % 60
     return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`
   }
 
-  const handleSelectAnswer = (questionId, answerIndex) => {
+  const handleSelectAnswer = (questionId: string, answerIndex: number): void => {
     setSelectedAnswers({
       ...selectedAnswers,
       [questionId]: answerIndex,
     })
   }
 
-  const handlePrevious = () => {
+  const handlePrevious = (): void => {
     if (currentQuestionIndex > 0) {
       setCurrentQuestionIndex(currentQuestionIndex - 1)
     }
   }
 
-  const handleNext = () => {
+  const handleNext = (): void => {
     if (currentQuestionIndex < quiz.questions.length - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1)
     } else {

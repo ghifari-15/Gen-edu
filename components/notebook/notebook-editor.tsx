@@ -27,13 +27,21 @@ import { Input } from "@/components/ui/input"
 import { useIsMobile } from "@/hooks/use-mobile"
 import Link from "next/link"
 
-export function NotebookEditor({ notebook }) {
-  const [content, setContent] = useState(notebook.content)
-  const [title, setTitle] = useState(notebook.title)
-  const [activeTab, setActiveTab] = useState("notes")
+interface NotebookProps {
+  id: string;
+  title: string;
+  content: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export function NotebookEditor({ notebook }: { notebook: NotebookProps }) {
+  const [content, setContent] = useState<string>(notebook.content)
+  const [title, setTitle] = useState<string>(notebook.title)
+  const [activeTab, setActiveTab] = useState<string>("notes")
   const isMobile = useIsMobile()
 
-  const handleContentChange = (e) => {
+  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>): void => {
     setContent(e.target.value)
   }
 

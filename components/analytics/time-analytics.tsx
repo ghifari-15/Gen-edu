@@ -5,17 +5,34 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { useIsMobile } from "@/hooks/use-mobile"
 
-export function TimeAnalytics({ timeRange }) {
+interface TimeAnalyticsProps {
+  timeRange: string;
+}
+
+interface SubjectData {
+  name: string;
+  hours: number;
+  color: string;
+}
+
+interface TimeDataProps {
+  totalHours: number;
+  weeklyAverage: number;
+  longestSession: number;
+  sessionsCompleted: number;
+}
+
+export function TimeAnalytics({ timeRange }: TimeAnalyticsProps) {
   const isMobile = useIsMobile()
 
-  const timeData = {
+  const timeData: TimeDataProps = {
     totalHours: 128,
     weeklyAverage: 12.5,
     longestSession: 2.5,
     sessionsCompleted: 42,
   }
 
-  const timeBySubject = [
+  const timeBySubject: SubjectData[] = [
     { name: "Machine Learning", hours: 45, color: "bg-indigo-600" },
     { name: "Data Science", hours: 32, color: "bg-lime-500" },
     { name: "Web Development", hours: 28, color: "bg-amber-500" },
@@ -25,8 +42,8 @@ export function TimeAnalytics({ timeRange }) {
 
   const totalSubjectHours = timeBySubject.reduce((sum, subject) => sum + subject.hours, 0)
 
-  const weeklyHours = [8, 10, 15, 12, 18, 20, 14]
-  const weeks = ["Week 1", "Week 2", "Week 3", "Week 4", "Week 5", "Week 6", "Week 7"]
+  const weeklyHours: number[] = [8, 10, 15, 12, 18, 20, 14]
+  const weeks: string[] = ["Week 1", "Week 2", "Week 3", "Week 4", "Week 5", "Week 6", "Week 7"]
 
   return (
     <div className="space-y-8">

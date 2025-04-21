@@ -6,15 +6,23 @@ import { NotebookEditor } from "@/components/notebook/notebook-editor"
 import { useParams } from "next/navigation"
 import { sampleNotebooks } from "@/data/sample-notebooks"
 
+interface Notebook {
+  id: string;
+  title: string;
+  content: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export default function NotebookDetailPage() {
   const params = useParams()
   const notebookId = params.id as string
-  const [notebook, setNotebook] = useState(null)
+  const [notebook, setNotebook] = useState<Notebook | null>(null)
 
   useEffect(() => {
     // In a real app, you would fetch the notebook from an API
     const foundNotebook = sampleNotebooks.find((n) => n.id === notebookId) || sampleNotebooks[0]
-    setNotebook(foundNotebook)
+    setNotebook(foundNotebook as Notebook)
   }, [notebookId])
 
   if (!notebook) {

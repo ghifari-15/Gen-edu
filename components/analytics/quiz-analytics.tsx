@@ -5,10 +5,27 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { useIsMobile } from "@/hooks/use-mobile"
 
-export function QuizAnalytics({ timeRange }) {
+interface QuizAnalyticsProps {
+  timeRange: string;
+}
+
+interface QuizData {
+  name: string;
+  score: number;
+  questions: number;
+  date: string;
+}
+
+interface ScoreDistribution {
+  range: string;
+  count: number;
+  color: string;
+}
+
+export function QuizAnalytics({ timeRange }: QuizAnalyticsProps) {
   const isMobile = useIsMobile()
 
-  const quizzes = [
+  const quizzes: QuizData[] = [
     { name: "Machine Learning Fundamentals", score: 92, questions: 15, date: "Apr 5, 2025" },
     { name: "Data Structures & Algorithms", score: 85, questions: 20, date: "Apr 2, 2025" },
     { name: "Web Development with React", score: 78, questions: 12, date: "Mar 28, 2025" },
@@ -19,7 +36,7 @@ export function QuizAnalytics({ timeRange }) {
   const averageScore = quizzes.reduce((sum, quiz) => sum + quiz.score, 0) / quizzes.length
   const totalQuestions = quizzes.reduce((sum, quiz) => sum + quiz.questions, 0)
 
-  const scoreDistribution = [
+  const scoreDistribution: ScoreDistribution[] = [
     { range: "90-100%", count: 2, color: "bg-green-500" },
     { range: "80-89%", count: 2, color: "bg-lime-500" },
     { range: "70-79%", count: 1, color: "bg-yellow-500" },

@@ -6,21 +6,34 @@ import { Input } from "@/components/ui/input"
 import { Send, X, Maximize, Minimize, BrainCircuit } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 
-export function ChatPopup({ isOpen, onClose }) {
-  const [messages, setMessages] = useState([
+// Define types for the component props
+interface ChatPopupProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+// Define the message type
+interface Message {
+  text: string;
+  sender: 'ai' | 'user';
+  time: string;
+}
+
+export function ChatPopup({ isOpen, onClose }: ChatPopupProps) {
+  const [messages, setMessages] = useState<Message[]>([
     {
       text: "Hello! I'm your Learning AI assistant. How can I help with your learning today?",
       sender: "ai",
       time: "11:32 AM",
     },
   ])
-  const [input, setInput] = useState("")
-  const [isExpanded, setIsExpanded] = useState(false)
-  const messagesEndRef = useRef(null)
-  const inputRef = useRef(null)
-  const chatContainerRef = useRef(null)
+  const [input, setInput] = useState<string>("")
+  const [isExpanded, setIsExpanded] = useState<boolean>(false)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const chatContainerRef = useRef<HTMLDivElement>(null)
 
-  const scrollToBottom = () => {
+  const scrollToBottom = (): void => {
     // Use a more reliable approach to scroll to the bottom
     if (chatContainerRef.current) {
       const scrollContainer = chatContainerRef.current;
@@ -35,7 +48,7 @@ export function ChatPopup({ isOpen, onClose }) {
     }
   }, [messages, isOpen])
 
-  const handleSend = () => {
+  const handleSend = (): void => {
     if (input.trim()) {
       setMessages([...messages, { text: input, sender: "user", time: getCurrentTime() }])
       setInput("")
@@ -54,12 +67,12 @@ export function ChatPopup({ isOpen, onClose }) {
     }
   }
 
-  const getCurrentTime = () => {
+  const getCurrentTime = (): string => {
     const now = new Date()
     return now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
   }
 
-  const toggleExpand = () => {
+  const toggleExpand = (): void => {
     setIsExpanded(!isExpanded)
   }
 

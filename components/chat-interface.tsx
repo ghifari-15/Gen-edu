@@ -6,19 +6,26 @@ import { Input } from "@/components/ui/input"
 import { ArrowUp } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 
+// Define TypeScript interface for message objects
+interface Message {
+  text: string;
+  sender: 'ai' | 'user';
+  time: string;
+}
+
 export function ChatInterface() {
-  const [messages, setMessages] = useState([
+  const [messages, setMessages] = useState<Message[]>([
     {
       text: "Hello! I'm your AI learning assistant. How can I help with your studies today?",
       sender: "ai",
       time: "11:32 AM",
     },
   ])
-  const [input, setInput] = useState("")
-  const messagesEndRef = useRef(null)
-  const chatContainerRef = useRef(null)
+  const [input, setInput] = useState<string>("")
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const chatContainerRef = useRef<HTMLDivElement>(null)
 
-  const scrollToBottom = () => {
+  const scrollToBottom = (): void => {
     // Use a more reliable approach to scroll to the bottom
     if (chatContainerRef.current) {
       const scrollContainer = chatContainerRef.current;
@@ -30,7 +37,7 @@ export function ChatInterface() {
     scrollToBottom()
   }, [messages])
 
-  const handleSend = () => {
+  const handleSend = (): void => {
     if (input.trim()) {
       setMessages([...messages, { text: input, sender: "user", time: getCurrentTime() }])
       setInput("")
@@ -49,7 +56,7 @@ export function ChatInterface() {
     }
   }
 
-  const getCurrentTime = () => {
+  const getCurrentTime = (): string => {
     const now = new Date()
     return now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
   }
