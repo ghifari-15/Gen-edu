@@ -62,7 +62,7 @@ export function NotebookEditor({ notebook }: { notebook: NotebookProps }) {
           />
         </div>
         <div className="flex items-center space-x-2">
-          <Button variant="outline" className="bg-white border-gray-200 rounded-lg flex items-center hidden md:flex">
+          <Button variant="outline" className="bg-white border-gray-200 rounded-lg items-center hidden md:flex">
             <Share className="h-4 w-4 mr-2" />
             Share
           </Button>
