@@ -19,16 +19,16 @@ export function QuizCreator() {
   const [isGenerating, setIsGenerating] = useState(false)
   const router = useRouter()
 
-  const handleDragOver = (e) => {
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>): void => {
     e.preventDefault()
     setIsDragging(true)
   }
 
-  const handleDragLeave = () => {
+  const handleDragLeave = (): void => {
     setIsDragging(false)
   }
 
-  const handleDrop = (e) => {
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>): void => {
     e.preventDefault()
     setIsDragging(false)
 
@@ -37,13 +37,13 @@ export function QuizCreator() {
     }
   }
 
-  const handleFileChange = (e) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     if (e.target.files && e.target.files[0]) {
       setFile(e.target.files[0])
     }
   }
 
-  const handleGenerate = () => {
+  const handleGenerate = (): void => {
     if (!file) return // Don't proceed if no file is uploaded
 
     setIsGenerating(true)

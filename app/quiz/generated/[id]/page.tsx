@@ -7,10 +7,26 @@ import { useEffect, useState } from "react"
 import { sampleQuizzes } from "@/data/sample-quizzes"
 import { motion } from "framer-motion"
 
+interface Question {
+  id: string;
+  text: string;
+  options: string[];
+  correctAnswer: number;
+}
+
+interface Quiz {
+  id: string;
+  title: string;
+  description: string;
+  totalQuestions: number;
+  difficulty: string;
+  questions: Question[];
+}
+
 export default function GeneratedQuizPage() {
   const params = useParams()
   const quizId = params.id as string
-  const [quiz, setQuiz] = useState(null)
+  const [quiz, setQuiz] = useState<Quiz | null>(null)
 
   useEffect(() => {
     // Reset scroll position to top when component mounts
@@ -18,7 +34,7 @@ export default function GeneratedQuizPage() {
 
     // In a real app, you would fetch the quiz from an API
     const foundQuiz = sampleQuizzes.find((q) => q.id === quizId) || sampleQuizzes[0]
-    setQuiz(foundQuiz)
+    setQuiz(foundQuiz as Quiz)
   }, [quizId])
 
   if (!quiz) {

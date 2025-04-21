@@ -6,10 +6,29 @@ import { motion } from "framer-motion"
 import { CheckCircle, XCircle } from "lucide-react"
 import Link from "next/link"
 
-export function QuizResults({ quiz, score, timeSpent }) {
-  const formatTime = (seconds) => {
-    const minutes = Math.floor(seconds / 60)
-    const remainingSeconds = seconds % 60
+interface Question {
+  id: string;
+  text: string;
+  options: string[];
+  correctAnswer: number;
+}
+
+interface QuizProps {
+  id: string;
+  title: string;
+  questions: Question[];
+}
+
+interface QuizResultsProps {
+  quiz: QuizProps;
+  score: string;
+  timeSpent: string;
+}
+
+export function QuizResults({ quiz, score, timeSpent }: QuizResultsProps) {
+  const formatTime = (seconds: string): string => {
+    const minutes = Math.floor(parseInt(seconds) / 60)
+    const remainingSeconds = parseInt(seconds) % 60
     return `${minutes}m ${remainingSeconds}s`
   }
 

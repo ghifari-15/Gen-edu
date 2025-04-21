@@ -7,10 +7,26 @@ import { Clock, FileText, BarChart3, List, ArrowRight, Edit } from "lucide-react
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
-export function GeneratedQuizPreview({ quiz }) {
+interface Question {
+  id: string;
+  text: string;
+  options: string[];
+  correctAnswer: number;
+}
+
+interface QuizProps {
+  id: string;
+  title: string;
+  description: string;
+  totalQuestions: number;
+  difficulty: string;
+  questions: Question[];
+}
+
+export function GeneratedQuizPreview({ quiz }: { quiz: QuizProps }) {
   const router = useRouter()
 
-  const handleEditQuiz = () => {
+  const handleEditQuiz = (): void => {
     // Go back to the quiz creator page
     router.push("/quiz/create")
   }

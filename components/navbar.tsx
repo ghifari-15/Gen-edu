@@ -4,15 +4,15 @@ import { BrainCircuit, Bell, Settings, Home, Book, BarChart2, MessageCircle } fr
 import { Button } from "@/components/ui/button"
 import { motion } from "framer-motion"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { useState, useEffect } from "react"
+import { useState, useEffect, ReactNode } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { ChatPopup } from "@/components/chat-popup"
 
 export function Navbar() {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [chatOpen, setChatOpen] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false)
+  const [chatOpen, setChatOpen] = useState<boolean>(false)
   const pathname = usePathname()
   const isMobile = useIsMobile()
   const isHomePage = pathname === "/"
@@ -22,7 +22,7 @@ export function Navbar() {
     setMobileMenuOpen(false)
   }, [pathname])
 
-  const toggleChat = () => {
+  const toggleChat = (): void => {
     setChatOpen(!chatOpen)
   }
 
@@ -167,7 +167,13 @@ export function Navbar() {
   )
 }
 
-function NavButton({ children, active = false, href }) {
+interface NavButtonProps {
+  children: ReactNode;
+  active?: boolean;
+  href: string;
+}
+
+function NavButton({ children, active = false, href }: NavButtonProps) {
   return (
     <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
       <Link href={href}>
@@ -186,7 +192,14 @@ function NavButton({ children, active = false, href }) {
   )
 }
 
-function MobileNavButton({ href, active, icon, label }) {
+interface MobileNavButtonProps {
+  href: string;
+  active: boolean;
+  icon: ReactNode;
+  label: string;
+}
+
+function MobileNavButton({ href, active, icon, label }: MobileNavButtonProps) {
   return (
     <Link href={href} className="flex flex-col items-center justify-center w-16">
       <div className={`flex flex-col items-center justify-center ${active ? "text-indigo-600" : "text-gray-500"}`}>
