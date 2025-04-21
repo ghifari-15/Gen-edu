@@ -44,6 +44,9 @@ export function TimeAnalytics({ timeRange }: TimeAnalyticsProps) {
 
   const weeklyHours: number[] = [8, 10, 15, 12, 18, 20, 14]
   const weeks: string[] = ["Week 1", "Week 2", "Week 3", "Week 4", "Week 5", "Week 6", "Week 7"]
+  
+  // Calculate max hours for proper scaling
+  const maxHours = Math.max(...weeklyHours)
 
   return (
     <div className="space-y-8">
@@ -78,19 +81,111 @@ export function TimeAnalytics({ timeRange }: TimeAnalyticsProps) {
         <Card className="border-gray-200 bg-white">
           <CardContent className="p-6">
             <h3 className="text-lg font-medium text-gray-900 mb-4">Weekly Study Hours</h3>
-            <div className="h-64 flex items-end space-x-2">
-              {weeklyHours.map((hours, index) => (
-                <div key={index} className="flex-1 flex flex-col items-center">
-                  <motion.div
-                    className="w-full bg-indigo-600 rounded-t"
-                    style={{ height: `${hours * 3}%` }}
-                    initial={{ height: 0 }}
-                    animate={{ height: `${hours * 3}%` }}
-                    transition={{ duration: 0.5, delay: index * 0.1 }}
+            <div className="h-64 relative bg-gray-50 rounded-lg p-4">
+              {/* Y-axis labels */}
+              <div className="absolute left-2 top-0 bottom-8 w-10 flex flex-col justify-between text-xs text-gray-500">
+                <div>{maxHours}h</div>
+                <div>{Math.round(maxHours * 0.75)}h</div>
+                <div>{Math.round(maxHours / 2)}h</div>
+                <div>{Math.round(maxHours * 0.25)}h</div>
+                <div>0h</div>
+              </div>
+
+              {/* Grid lines */}
+              <div className="absolute left-12 right-4 top-0 bottom-8 flex flex-col justify-between">
+                {[0, 1, 2, 3, 4].map((line) => (
+                  <div key={line} className="border-t border-gray-200 w-full" />
+                ))}
+              </div>
+
+              {/* Line chart container */}
+              <div className="ml-12 mr-4 h-full flex flex-col pt-0 pb-8 relative">
+                {/* Line points and path */}
+                <svg className="w-full h-full absolute top-0 left-0 overflow-visible">
+                  {/* Line path with animation */}
+                  <path
+                    d={weeklyHours.map((hours, i) => {
+                      const x = (i / (weeklyHours.length - 1)) * 100;
+                      const y = 100 - ((hours / maxHours) * 100);
+                      return `${i === 0 ? 'M' : 'L'} ${x}% ${y}%`;
+                    }).join(' ')}
+                    fill="none"
+                    stroke="#4f46e5"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeDasharray="1000"
+                    strokeDashoffset="1000"
+                    className="transition-all duration-1000"
+                    style={{ animation: "dash 2s ease-in-out forwards" }}
                   />
-                  <div className="text-xs text-gray-500 mt-2">{weeks[index]}</div>
+                  
+                  {/* Area under the line with gradient */}
+                  <linearGradient id="weeklyGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stopColor="#4f46e5" stopOpacity="0.2" />
+                    <stop offset="100%" stopColor="#4f46e5" stopOpacity="0" />
+                  </linearGradient>
+                  
+                  <path
+                    d={`${weeklyHours.map((hours, i) => {
+                      const x = (i / (weeklyHours.length - 1)) * 100;
+                      const y = 100 - ((hours / maxHours) * 100);
+                      return `${i === 0 ? 'M' : 'L'} ${x}% ${y}%`;
+                    }).join(' ')} L 100% 100% L 0% 100% Z`}
+                    fill="url(#weeklyGradient)"
+                    className="transition-all duration-500"
+                  />
+                  
+                  {/* Data points */}
+                  {weeklyHours.map((hours, index) => {
+                    const x = (index / (weeklyHours.length - 1)) * 100;
+                    const y = 100 - ((hours / maxHours) * 100);
+                    return (
+                      <g key={index} className="transition-all duration-500">
+                        <circle
+                          cx={`${x}%`}
+                          cy={`${y}%`}
+                          r="4"
+                          fill="#4f46e5"
+                          stroke="white"
+                          strokeWidth="2"
+                          className="group relative hover:r-6 transition-all cursor-pointer"
+                        />
+                        
+                        {/* Tooltips */}
+                        <g className="opacity-0 hover:opacity-100 transition-opacity">
+                          <rect
+                            x={`${x}%`}
+                            y={`${y - 8}%`}
+                            width="40"
+                            height="20"
+                            rx="4"
+                            transform="translate(-20, -20)"
+                            fill="#1f2937"
+                          />
+                          <text
+                            x={`${x}%`}
+                            y={`${y - 8}%`}
+                            textAnchor="middle"
+                            transform="translate(0, -12)"
+                            fontSize="10"
+                            fill="white"
+                          >
+                            {hours}h
+                          </text>
+                        </g>
+                      </g>
+                    );
+                  })}
+                </svg>
+                
+                {/* X-axis labels */}
+                <div className="absolute bottom-0 left-0 right-0 flex justify-between px-0">
+                  {weeks.map((week, index) => (
+                    <div key={index} className="text-xs font-medium text-gray-700">{week}</div>
+                  ))}
                 </div>
-              ))}
+              </div>
             </div>
           </CardContent>
         </Card>
