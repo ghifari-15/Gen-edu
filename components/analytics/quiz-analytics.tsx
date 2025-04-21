@@ -77,20 +77,110 @@ export function QuizAnalytics({ timeRange }: QuizAnalyticsProps) {
         <Card className="border-gray-200 col-span-1 md:col-span-2 bg-white">
           <CardContent className="p-6">
             <h3 className="text-lg font-medium text-gray-900 mb-4">Score Distribution</h3>
-            <div className="h-64 flex items-end space-x-4">
-              {scoreDistribution.map((item, index) => (
-                <div key={item.range} className="flex-1 flex flex-col items-center">
-                  <motion.div
-                    className={`w-full ${item.color} rounded-t`}
-                    style={{ height: `${item.count * 25}%` }}
-                    initial={{ height: 0 }}
-                    animate={{ height: `${item.count * 25}%` }}
-                    transition={{ duration: 0.5, delay: index * 0.1 }}
+            <div className="h-64 relative bg-gray-50 rounded-lg p-4">
+              {/* Y-axis labels */}
+              <div className="absolute left-2 top-0 bottom-8 w-6 flex flex-col justify-between text-xs text-gray-500">
+                <div>4</div>
+                <div>3</div>
+                <div>2</div>
+                <div>1</div>
+                <div>0</div>
+              </div>
+              
+              {/* Grid lines */}
+              <div className="absolute left-10 right-4 top-0 bottom-8 flex flex-col justify-between">
+                {[0, 1, 2, 3, 4].map((line) => (
+                  <div key={line} className="border-t border-gray-200 w-full" />
+                ))}
+              </div>
+              
+              {/* Line chart container */}
+              <div className="ml-10 mr-4 h-full flex flex-col pt-0 pb-8 relative">
+                {/* Line points and path */}
+                <svg className="w-full h-full absolute top-0 left-0 overflow-visible">
+                  {/* Line path with animation */}
+                  <path
+                    d={scoreDistribution.map((item, i) => {
+                      const x = (i / (scoreDistribution.length - 1)) * 100;
+                      const y = 100 - ((item.count / 4) * 100);
+                      return `${i === 0 ? 'M' : 'L'} ${x}% ${y}%`;
+                    }).join(' ')}
+                    fill="none"
+                    stroke="#4f46e5"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeDasharray="1000"
+                    strokeDashoffset="1000"
+                    style={{ animation: "dash 2s ease-in-out forwards" }}
                   />
-                  <div className="text-xs text-gray-500 mt-2 text-center">{item.range}</div>
-                  <div className="text-sm font-medium">{item.count}</div>
+                  
+                  {/* Area under the line with gradient */}
+                  <linearGradient id="scoreGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stopColor="#4f46e5" stopOpacity="0.2" />
+                    <stop offset="100%" stopColor="#4f46e5" stopOpacity="0" />
+                  </linearGradient>
+                  
+                  <path
+                    d={`${scoreDistribution.map((item, i) => {
+                      const x = (i / (scoreDistribution.length - 1)) * 100;
+                      const y = 100 - ((item.count / 4) * 100);
+                      return `${i === 0 ? 'M' : 'L'} ${x}% ${y}%`;
+                    }).join(' ')} L 100% 100% L 0% 100% Z`}
+                    fill="url(#scoreGradient)"
+                    className="transition-all duration-500"
+                  />
+                  
+                  {/* Data points */}
+                  {scoreDistribution.map((item, index) => {
+                    const x = (index / (scoreDistribution.length - 1)) * 100;
+                    const y = 100 - ((item.count / 4) * 100);
+                    return (
+                      <g key={index} className="transition-all duration-500">
+                        <circle
+                          cx={`${x}%`}
+                          cy={`${y}%`}
+                          r="4"
+                          fill={item.color.replace('bg-', '#').replace('green-500', '22c55e').replace('lime-500', '84cc16').replace('yellow-500', 'eab308').replace('orange-500', 'f97316').replace('red-500', 'ef4444')}
+                          stroke="white"
+                          strokeWidth="2"
+                          className="cursor-pointer"
+                        />
+                        
+                        {/* Tooltips */}
+                        <g className="opacity-0 hover:opacity-100 transition-opacity">
+                          <rect
+                            x={`${x}%`}
+                            y={`${y - 8}%`}
+                            width="60"
+                            height="20"
+                            rx="4"
+                            transform="translate(-30, -20)"
+                            fill="#1f2937"
+                          />
+                          <text
+                            x={`${x}%`}
+                            y={`${y - 8}%`}
+                            textAnchor="middle"
+                            transform="translate(0, -12)"
+                            fontSize="10"
+                            fill="white"
+                          >
+                            {item.count} quizzes
+                          </text>
+                        </g>
+                      </g>
+                    );
+                  })}
+                </svg>
+                
+                {/* X-axis labels */}
+                <div className="absolute bottom-0 left-0 right-0 flex justify-between px-0">
+                  {scoreDistribution.map((item, index) => (
+                    <div key={index} className="text-xs font-medium text-gray-700">{item.range}</div>
+                  ))}
                 </div>
-              ))}
+              </div>
             </div>
           </CardContent>
         </Card>
