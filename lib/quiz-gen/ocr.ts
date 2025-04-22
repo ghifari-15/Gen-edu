@@ -14,8 +14,8 @@ const uploaded_pdf = await client.files.upload({
     file: {
         fileName: "aiayn.pdf",
         content: uploaded_file,
-    },
-    purpose: "ocr",
+    },  
+    purpose: "ocr"
 });
 
 await client.files.retrieve({

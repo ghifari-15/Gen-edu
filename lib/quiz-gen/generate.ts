@@ -3,7 +3,7 @@ import model from "./llm";
 import extractedMarkdown from "./ocr";
 
 const system = new SystemMessage(`
-    You are a quiz generator AI. Your task is to create quizzes in strict JSON format based on the study material provided by the user. Follow this structure:
+    You are a quiz generator AI. Your task is to create quizzes in strict JSON format based on the study material provided by the user. Follow this JSON structure:
 
 {
   "quizTitle": "",
@@ -43,7 +43,7 @@ async function generateQuiz() {
     `);
 
   const response = await model.invoke([system, message]);
-  console.log(response);
+  console.log(response.content);
 }
 
 // Call the function with error handling
