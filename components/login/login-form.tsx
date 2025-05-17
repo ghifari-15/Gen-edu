@@ -10,31 +10,30 @@ import { Label } from "@/components/ui/label"
 import { useState } from "react"
 
 
-export function RegisterForm({ className, ...props }: React.ComponentPropsWithoutRef<"div">) {
+export function LoginForm({ className, ...props }: React.ComponentPropsWithoutRef<"div">) {
     const [showPassword, setShowPassword] = useState(false)
-    const [showConfirmPassword, setShowConfirmPassword] = useState(false)
     return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <form>
         <div className="flex flex-col gap-6">
-          <div className="flex flex-col items-center gap-2">
+          <div className="flex flex-col items-center gap-1.5">
             <a href="#" className="flex flex-col items-center gap-2 font-medium">
               <div className="flex h-8 w-8 items-center justify-center rounded-md">
                 <GalleryVerticalEnd className="size-6" />
               </div>
-              <span className="text-violet-600 p-2">Acme Inc.</span>
+              
             </a>
-            <h1 className="text-xl font-bold text-violet-600">Welcome to Acme Inc.</h1>
-            <div className="text-center text-sm text-black">
+            <h1 className="text-xl font-bold text-violet-600 text-foreground">Welcome to Gen Edu.</h1>
+            <div className="text-center text-xs text-black">
               Don&apos;t have an account?{" "}
-              <a href="#" className="underline underline-offset-4">
+              <a href="/register" className="underline underline-offset-4">
                 Sign up
               </a>
             </div>
           </div>
           <div className="flex flex-col gap-6">
             <div className="grid gap-2">
-              <Label htmlFor="email" className="text-black">Email</Label>
+              <Label htmlFor="email" className="text-black input">Email</Label>
               <Input id="email" type="email" placeholder="johnny.gplate@outlook.com" required className="bg-white border border-gray-300 text-black"/>
             </div>
             <div className="grid gap-2">
@@ -69,44 +68,12 @@ export function RegisterForm({ className, ...props }: React.ComponentPropsWithou
                 </button>
               </div>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="confirmPassword" className="text-black">Confirm Password</Label>
-              <div className="relative">
-                <Input
-                  id="confirmPassword"
-                  type={showConfirmPassword ? "text" : "password"}
-                  required
-                  className="bg-white border border-gray-300 text-black pr-10"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword((v) => !v)}
-                  className="absolute inset-y-0 right-2 flex items-center text-gray-500"
-                  tabIndex={0}
-                  aria-label={showConfirmPassword ? "Hide password" : "Show password"}
-                >
-                  {showConfirmPassword ? (
-                    // Eye-off icon (hide password)
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.94 17.94A10.05 10.05 0 0112 19c-5.523 0-10-4.477-10-10 0-1.657.403-3.22 1.125-4.575M6.343 6.343A8.001 8.001 0 0112 4c4.418 0 8 3.582 8 8 0 1.657-.403 3.22-1.125 4.575M3 3l18 18" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.88 9.88a3 3 0 104.24 4.24" />
-                    </svg>
-                  ) : (
-                    // Eye icon (show password)
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-.274.832-.67 1.613-1.17 2.318" />
-                    </svg>
-                  )}
-                </button>
-              </div>
-            </div>
-            <Button type="submit" className="w-full">
-              Register
+            <Button type="submit" className="w-full" style={{ backgroundColor: "hsl(var(--brand)))" }}>
+              Login
             </Button>
           </div>
           <div className="relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t after:border-border">
-            <span className="relative z-10 bg-background px-2 text-muted-foreground">Or</span>
+            <span className="text-black-600 relative z-10 bg-foreground px-2 text-muted-foreground">Or</span>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <Button variant="outline" className="w-full">

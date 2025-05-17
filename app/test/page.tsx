@@ -1,7 +1,7 @@
-import { RegisterForm } from "@/app/register/register"
+import RegisterForm from "../../components/register/page"
 
 
-export default function LoginPage() {
+export default function RegisterPage() {
   return (
     <div className="flex min-h-svh flex-col items-center justify-center gap-6 bg-white p-6 md:p-10">
       <div className="w-full max-w-sm">
