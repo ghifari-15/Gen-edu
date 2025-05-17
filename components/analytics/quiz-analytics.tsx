@@ -200,7 +200,7 @@ export function QuizAnalytics({ timeRange }: QuizAnalyticsProps) {
                 <CardContent className="p-4">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>
-                      <div className="font-medium">{quiz.name}</div>
+                      <div className="font-medium text-indigo-600 font-bold">{quiz.name}</div>
                       <div className="text-sm text-gray-500">
                         {quiz.date} • {quiz.questions} questions
                       </div>
