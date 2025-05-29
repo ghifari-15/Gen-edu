@@ -4,11 +4,8 @@ import { config } from "dotenv";
 config();
 const apiKey = process.env.DEEPINFRA_API_KEY;
 
-
-
-const model = new ChatOpenAI({
-    model: "google/gemini-2.0-flash-001",
-  
+const llm = new ChatOpenAI({
+    model: "claude-3-7-sonnet-latest",
     apiKey: apiKey,
     temperature: 0.7,
     configuration: {
@@ -16,4 +13,5 @@ const model = new ChatOpenAI({
     }
   });
 
-export default model;
+
+export default llm;
