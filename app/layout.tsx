@@ -3,6 +3,7 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider } from "@/lib/auth/AuthContext"
+import { OnboardingWrapper } from "@/components/onboarding/onboarding-wrapper"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -18,11 +19,12 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.className} pb-safe`}>
+    <html lang="en" suppressHydrationWarning>      <body className={`${inter.className} pb-safe`}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
           <AuthProvider>
-            {children}
+            <OnboardingWrapper>
+              {children}
+            </OnboardingWrapper>
           </AuthProvider>
         </ThemeProvider>
       </body>

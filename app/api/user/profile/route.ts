@@ -162,14 +162,13 @@ export async function PUT(request: NextRequest) {
         ...user.subscription
       };
       needsSave = true;
-    }
-
-    // Update allowed fields
+    }    // Update allowed fields
     const allowedUpdates = [
       'name',
       'avatar',
       'preferences',
-      'profile'
+      'profile',
+      'onboardingCompleted'
     ];
 
     Object.keys(updateData).forEach(key => {

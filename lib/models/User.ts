@@ -7,9 +7,9 @@ export interface IUser extends Document {
   email: string;
   password: string;
   name: string;
-  role: 'student' | 'teacher' | 'admin';
-  avatar?: string;
+  role: 'student' | 'teacher' | 'admin';  avatar?: string;
   isEmailVerified: boolean;
+  onboardingCompleted: boolean;
   lastLogin?: Date;
   preferences: {
     theme: 'light' | 'dark';
@@ -79,8 +79,11 @@ const UserSchema = new Schema<IUser>(
     avatar: {
       type: String,
       default: null,
+    },    isEmailVerified: {
+      type: Boolean,
+      default: false,
     },
-    isEmailVerified: {
+    onboardingCompleted: {
       type: Boolean,
       default: false,
     },

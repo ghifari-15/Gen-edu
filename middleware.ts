@@ -14,6 +14,7 @@ const protectedRoutes = [
 const publicRoutes = [
   '/login',
   '/register',
+  '/onboarding',
   '/api/auth'
 ];
 
@@ -96,9 +97,15 @@ export async function middleware(request: NextRequest) {
         const response = NextResponse.redirect(new URL('/login', request.url));
         response.cookies.delete('auth-token');
         return response;
+      }    } else {
+      // Token is valid, check if user needs onboarding
+      if (isProtectedRoute && pathname !== '/onboarding') {
+        // Check if user has completed onboarding (this would normally be checked in DB)
+        // For now, we'll use a simple approach with headers or check the user profile
+        // We'll add a more robust check later
       }
-    } else {
-      // Token is valid, add user info to headers
+      
+      // Add user info to headers
       const response = NextResponse.next();
       response.headers.set('x-user-id', payload.userId || '');
       response.headers.set('x-user-email', payload.email || '');

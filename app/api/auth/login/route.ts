@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/database/mongodb';
 import User from '@/lib/models/User';
+import Activity from '@/lib/models/Activity';
 import { AuthUtils } from '@/lib/auth/utils';
 
 export async function POST(request: NextRequest) {
@@ -47,6 +48,20 @@ export async function POST(request: NextRequest) {
     }    // Update last login
     user.lastLogin = new Date();
     await user.save();
+
+    // Track login activity
+    try {
+      await (Activity as any).trackActivity(user.userId, 'login', {
+        title: 'Logged in',
+        description: 'User logged into the platform',
+        metadata: {
+          sessionDuration: 0, // Will be updated when user logs out or session ends
+        }
+      });
+    } catch (activityError) {
+      console.error('Error tracking login activity:', activityError);
+      // Don't fail login if activity tracking fails
+    }
 
     // Generate JWT token
     const token = AuthUtils.generateToken(user);
