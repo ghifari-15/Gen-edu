@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
@@ -44,6 +44,31 @@ export function NotebookEditor({ notebook }: { notebook: NotebookProps }) {
   const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>): void => {
     setContent(e.target.value)
   }
+
+  // Auto-save logic (non-intrusive)
+  const saveTimeout = useRef<NodeJS.Timeout | null>(null)
+
+  useEffect(() => {
+    if (saveTimeout.current) clearTimeout(saveTimeout.current)
+    saveTimeout.current = setTimeout(() => {
+      localStorage.setItem(
+        `notebook-${notebook.id}`,
+        JSON.stringify({ ...notebook, title, content })
+      )
+    }, 1000)
+    return () => {
+      if (saveTimeout.current) clearTimeout(saveTimeout.current)
+    }
+  }, [title, content, notebook, notebook.id])
+
+  useEffect(() => {
+    const saved = localStorage.getItem(`notebook-${notebook.id}`)
+    if (saved) {
+      const parsed = JSON.parse(saved)
+      setTitle(parsed.title)
+      setContent(parsed.content)
+    }
+  }, [notebook.id])
 
   return (
     <div className="flex flex-col h-[calc(100vh-64px)]">
