@@ -6,7 +6,6 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ProfileOverview } from "@/components/profile/profile-overview"
-import { ProfileAchievements } from "@/components/profile/profile-achievements"
 import { ProfileActivity } from "@/components/profile/profile-activity"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { Settings, Edit } from "lucide-react"
@@ -61,12 +60,6 @@ export function ProfileContent() {
                 Overview
               </TabsTrigger>
               <TabsTrigger
-                value="achievements"
-                className="flex-1 rounded-none data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 py-4"
-              >
-                Achievements
-              </TabsTrigger>
-              <TabsTrigger
                 value="activity"
                 className="flex-1 rounded-none data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 py-4"
               >
@@ -75,7 +68,6 @@ export function ProfileContent() {
             </TabsList>
             <div className="p-6">
               {activeTab === "overview" && <ProfileOverview />}
-              {activeTab === "achievements" && <ProfileAchievements />}
               {activeTab === "activity" && <ProfileActivity />}
             </div>
           </Tabs>

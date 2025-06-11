@@ -12,8 +12,6 @@ export function ProfileOverview() {
   const stats = [
     { label: "Quizzes Completed", value: 42, icon: BookOpen, color: "bg-indigo-100 text-indigo-600" },
     { label: "Learning Hours", value: 128, icon: Clock, color: "bg-lime-100 text-lime-600" },
-    { label: "Achievements", value: 15, icon: Award, color: "bg-amber-100 text-amber-600" },
-    { label: "Knowledge Score", value: 720, icon: Brain, color: "bg-purple-100 text-purple-600" },
   ]
 
   return (
@@ -63,58 +61,6 @@ export function ProfileOverview() {
             <div className="flex items-center text-gray-600">
               <Calendar className="h-4 w-4 mr-2 text-gray-400" />
               <span>Joined April 2025</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-6">
-          <h3 className="text-lg font-medium text-gray-900">Learning Progress</h3>
-
-          <div className="space-y-4">
-            <div>
-              <div className="flex justify-between mb-1">
-                <span className="text-sm font-medium text-gray-700">Machine Learning</span>
-                <span className="text-sm font-medium text-gray-700">85%</span>
-              </div>
-              <Progress value={85} className="h-2" />
-            </div>
-
-            <div>
-              <div className="flex justify-between mb-1">
-                <span className="text-sm font-medium text-gray-700">Data Science</span>
-                <span className="text-sm font-medium text-gray-700">72%</span>
-              </div>
-              <Progress value={72} className="h-2" />
-            </div>
-
-            <div>
-              <div className="flex justify-between mb-1">
-                <span className="text-sm font-medium text-gray-700">Web Development</span>
-                <span className="text-sm font-medium text-gray-700">60%</span>
-              </div>
-              <Progress value={60} className="h-2" />
-            </div>
-
-            <div>
-              <div className="flex justify-between mb-1">
-                <span className="text-sm font-medium text-gray-700">AI Ethics</span>
-                <span className="text-sm font-medium text-gray-700">45%</span>
-              </div>
-              <Progress value={45} className="h-2" />
-            </div>
-          </div>
-
-          <div className="pt-4">
-            <h4 className="text-sm font-medium text-gray-700 mb-2">Current Courses</h4>
-            <div className="space-y-2">
-              <div className="p-3 bg-gray-50 rounded-lg">
-                <div className="font-medium">Advanced Neural Networks</div>
-                <div className="text-sm text-gray-500">4 of 8 modules completed</div>
-              </div>
-              <div className="p-3 bg-gray-50 rounded-lg">
-                <div className="font-medium">Data Visualization Techniques</div>
-                <div className="text-sm text-gray-500">2 of 6 modules completed</div>
-              </div>
             </div>
           </div>
         </div>
