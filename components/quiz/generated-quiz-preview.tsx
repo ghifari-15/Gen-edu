@@ -104,9 +104,6 @@ export function GeneratedQuizPreview({ quiz }: { quiz: QuizProps }) {
         </CardContent>
 
         <CardFooter className="flex justify-between pt-2">
-          <Button variant="outline" onClick={handleEditQuiz} className="flex items-center gap-2">
-            <Edit className="h-4 w-4" /> Edit Quiz
-          </Button>
           <Link href={`/quiz/${quiz.id}`}>
             <Button className="bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-2">
               Take Quiz <ArrowRight className="h-4 w-4" />

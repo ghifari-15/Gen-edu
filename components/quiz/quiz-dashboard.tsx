@@ -20,61 +20,84 @@ interface Quiz {
   createdAt: string;
 }
 
+interface QuizStats {
+  totalQuizzes: number;
+  totalAttempts: number;
+  completionRate: number;
+  chartData: number[];
+  growth: {
+    daily: number;
+    weekly: number;
+    monthly: number;
+  };
+  timeStats: {
+    dailyAttempts: number;
+    weeklyAttempts: number;
+    monthlyAttempts: number;
+  };
+}
+
 export function QuizDashboard() {
-  const [count, setCount] = useState(0)
   const [chartData, setChartData] = useState([0, 0, 0, 0, 0, 0, 0])
   const [recentQuizzes, setRecentQuizzes] = useState<Quiz[]>([])
+  const [quizStats, setQuizStats] = useState<QuizStats | null>(null)
   const [loading, setLoading] = useState(true)
-  const finalChartData = [20, 35, 45, 60, 40, 50, 65]
+  const [statsLoading, setStatsLoading] = useState(true)
   const isMobile = useIsMobile()
-
-  // Fetch recent quizzes from API
+  // Fetch recent quizzes and quiz stats from API
   useEffect(() => {
-    async function fetchQuizzes() {
+    async function fetchData() {
       try {
-        const response = await fetch('/api/quiz')
-        if (response.ok) {
-          const data = await response.json()
-          if (data.success) {
+        // Fetch quizzes
+        const quizResponse = await fetch('/api/quiz')
+        if (quizResponse.ok) {
+          const quizData = await quizResponse.json()
+          if (quizData.success) {
             // Get only the most recent 6 quizzes for the dashboard
-            setRecentQuizzes(data.quizzes.slice(0, 6))
+            setRecentQuizzes(quizData.quizzes.slice(0, 6))
+          }
+        }
+
+        // Fetch quiz statistics
+        const statsResponse = await fetch('/api/quiz/stats')
+        if (statsResponse.ok) {
+          const statsData = await statsResponse.json()
+          if (statsData.success) {
+            setQuizStats(statsData.stats)
+            // Animate chart data
+            animateChart(statsData.stats.chartData)
           }
         }
       } catch (error) {
-        console.error('Error fetching quizzes:', error)
+        console.error('Error fetching data:', error)
       } finally {
         setLoading(false)
+        setStatsLoading(false)
       }
     }
     
-    fetchQuizzes()
+    fetchData()
   }, [])
 
-  useEffect(() => {
-    const countInterval = setInterval(() => {
-      if (count < 487) {
-        setCount((prev) => Math.min(prev + Math.ceil(Math.random() * 50), 487))
-      } else {
-        clearInterval(countInterval)
-      }
-    }, 100)
-
-    const chartInterval = setInterval(() => {
+  // Animate chart data
+  const animateChart = (targetData: number[]) => {
+    const maxValue = Math.max(...targetData, 1)
+    const normalizedData = targetData.map(value => (value / maxValue) * 100)
+    
+    const interval = setInterval(() => {
       setChartData((prev) =>
         prev.map((value, index) => {
-          if (value < finalChartData[index]) {
-            return Math.min(value + Math.ceil(Math.random() * 10), finalChartData[index])
+          const target = normalizedData[index]
+          if (value < target) {
+            return Math.min(value + Math.ceil(Math.random() * 10), target)
           }
-          return value
+          return target
         }),
       )
     }, 100)
 
-    return () => {
-      clearInterval(countInterval)
-      clearInterval(chartInterval)
-    }
-  }, [count])
+    setTimeout(() => clearInterval(interval), 2000)
+  }
 
   const container = {
     hidden: { opacity: 0 },
@@ -109,19 +132,20 @@ export function QuizDashboard() {
         </motion.div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <motion.div variants={item}>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">        <motion.div variants={item}>
           <Card className="overflow-hidden shadow-md border border-gray-200">
             <CardContent className="p-0">
               <div className="bg-indigo-600 text-white p-6">
                 <div className="flex justify-between items-start">
-                  <h3 className="text-lg font-medium">Total Quizzes Taken</h3>
+                  <h3 className="text-lg font-medium">Total Quiz Attempts</h3>
                   <div className="px-2 py-1 bg-lime-400 text-indigo-950 text-xs font-medium rounded-full">
-                    +15% vs last month
+                    {statsLoading ? '+--' : `${(quizStats?.growth.monthly ?? 0) >= 0 ? '+' : ''}${quizStats?.growth.monthly ?? 0}`}% vs last month
                   </div>
                 </div>
                 <div className="mt-4 flex items-center">
-                  <span className="text-4xl font-bold">{count}</span>
+                  <span className="text-4xl font-bold">
+                    {statsLoading ? '--' : quizStats?.totalAttempts ?? 0}
+                  </span>
                 </div>
 
                 <div className="mt-4 flex items-end space-x-1 h-20">
@@ -138,22 +162,20 @@ export function QuizDashboard() {
                 </div>
 
                 <div className="mt-4 flex justify-between text-sm">
-                  <div>Daily +2.4%</div>
-                  <div>Weekly +8.7%</div>
-                  <div>Monthly +15%</div>
+                  <div>Daily {statsLoading ? '+--' : `${(quizStats?.growth.daily ?? 0) >= 0 ? '+' : ''}${quizStats?.growth.daily ?? 0}`}%</div>
+                  <div>Weekly {statsLoading ? '+--' : `${(quizStats?.growth.weekly ?? 0) >= 0 ? '+' : ''}${quizStats?.growth.weekly ?? 0}`}%</div>
+                  <div>Monthly {statsLoading ? '+--' : `${(quizStats?.growth.monthly ?? 0) >= 0 ? '+' : ''}${quizStats?.growth.monthly ?? 0}`}%</div>
                 </div>
               </div>
             </CardContent>
           </Card>
-        </motion.div>
-
-        <motion.div variants={item}>
+        </motion.div>        <motion.div variants={item}>
           <Card className="overflow-hidden shadow-md border border-gray-200 h-full">
             <CardContent className="p-6 bg-white">
               <div className="flex justify-between items-start">
                 <h3 className="text-lg font-medium text-gray-900">Learning Progress</h3>
                 <div className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs font-medium rounded-full">
-                  +15% Completion
+                  {statsLoading ? '+--' : `${quizStats?.completionRate ?? 0}`}% Average Score
                 </div>
               </div>
 
@@ -186,7 +208,7 @@ export function QuizDashboard() {
                       strokeLinecap="round"
                       strokeDasharray="251.2"
                       initial={{ strokeDashoffset: 251.2 }}
-                      animate={{ strokeDashoffset: 251.2 * (1 - 0.7) }}
+                      animate={{ strokeDashoffset: 251.2 * (1 - (quizStats?.completionRate ?? 0) / 100) }}
                       transition={{ duration: 1.5, ease: "easeOut" }}
                     />
                   </svg>
@@ -200,9 +222,9 @@ export function QuizDashboard() {
                       className="text-center"
                     >
                       <span className="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 to-indigo-700">
-                        70%
+                        {statsLoading ? '--' : `${quizStats?.completionRate ?? 0}`}%
                       </span>
-                      <div className="text-sm text-gray-500 mt-1">Completion</div>
+                      <div className="text-sm text-gray-500 mt-1">Average Score</div>
                     </motion.div>
                   </div>
                 </div>

@@ -3,6 +3,8 @@ import { AuthUtils } from '@/lib/auth/utils';
 import dbConnect from '@/lib/database/mongodb';
 import User from '@/lib/models/User';
 import Notebook from '@/lib/models/Notebook';
+import Quiz from '@/lib/models/Quiz';
+import { Activity } from '@/lib/models/Activity';
 import { ActivityTracker } from '@/lib/utils/activity-tracker';
 
 export async function GET(request: NextRequest) {
@@ -34,8 +36,7 @@ export async function GET(request: NextRequest) {
         { success: false, message: 'User not found' },
         { status: 404 }
       );
-    }
-    // Get activity statistics
+    }    // Get activity statistics
     const activityStats = await ActivityTracker.getActivityStats(payload.userId);
     
     // Get recent activities
@@ -43,6 +44,26 @@ export async function GET(request: NextRequest) {
     
     // Get notebook count
     const notebookCount = await Notebook.countDocuments({ userId: payload.userId });
+    
+    // Get quiz statistics
+    const [
+      quizzesCreatedCount,
+      allUserQuizAttempts
+    ] = await Promise.all([
+      Quiz.countDocuments({ userId: payload.userId }),
+      Quiz.aggregate([
+        { $match: { $or: [{ userId: payload.userId }, { 'attempts.userId': payload.userId }] } },
+        { $unwind: '$attempts' },
+        { $match: { 'attempts.userId': payload.userId } },
+        { $project: { 
+          attempt: '$attempts',
+          quizId: '$quizId',
+          title: '$title'
+        }}
+      ])
+    ]);
+
+    const quizzesCompletedCount = allUserQuizAttempts.length;
     
     // Get learning streak and other stats
     const profileStats = {
@@ -55,14 +76,13 @@ export async function GET(request: NextRequest) {
       // Additional stats
       totalActivities: activityStats.totalActivities,
       totalNotebooks: notebookCount,
-      
-      // User info
+        // User info
       joinedDate: user.createdAt,
       lastActive: user.statistics?.lastActive || user.updatedAt,
       
-      // Placeholder for quiz stats (to be implemented later)
-      quizzesCompleted: user.statistics?.quizzesCompleted || 0,
-      quizzesCreated: user.statistics?.quizzesCreated || 0,
+      // Quiz stats (real data from database)
+      quizzesCompleted: quizzesCompletedCount,
+      quizzesCreated: quizzesCreatedCount,
     };
 
     // Format recent activities for display
