@@ -20,8 +20,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         { success: false, message: 'Invalid token' },
         { status: 401 }
-      );
-    }
+      );    }
 
     // Connect to database and get user
     await dbConnect();
@@ -32,6 +31,60 @@ export async function GET(request: NextRequest) {
         { success: false, message: 'User not found' },
         { status: 404 }
       );
+    }
+
+    // Ensure all user fields are properly initialized
+    let needsSave = false;
+
+    // Initialize statistics if missing
+    if (!user.statistics) {
+      user.statistics = {
+        notebooksCreated: 0,
+        quizzesCompleted: 0,
+        quizzesCreated: 0,
+        totalStudyTime: 0,
+        streakDays: 0,
+        lastActive: new Date()
+      };
+      needsSave = true;
+    }
+
+    // Initialize subscription if missing fields
+    if (!user.subscription || !user.subscription.plan) {
+      user.subscription = {
+        plan: 'free',
+        status: 'active',
+        startDate: null,
+        endDate: null,
+        trialUsed: false,
+        ...user.subscription
+      };
+      needsSave = true;
+    }
+
+    // Initialize preferences if missing
+    if (!user.preferences) {
+      user.preferences = {
+        theme: 'light',
+        language: 'id',
+        notifications: true
+      };
+      needsSave = true;
+    }
+
+    // Initialize profile if missing
+    if (!user.profile) {
+      user.profile = {
+        bio: null,
+        institution: null,
+        grade: null,
+        subjects: []
+      };
+      needsSave = true;
+    }
+
+    if (needsSave) {
+      await user.save();
     }
 
     // Sanitize user data
@@ -71,9 +124,7 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const updateData = await request.json();
-
-    // Connect to database and get user
+    const updateData = await request.json();    // Connect to database and get user
     await dbConnect();
     const user = await User.findByUserId(payload.userId);
     
@@ -82,6 +133,35 @@ export async function PUT(request: NextRequest) {
         { success: false, message: 'User not found' },
         { status: 404 }
       );
+    }
+
+    // Ensure all user fields are properly initialized
+    let needsSave = false;
+
+    // Initialize statistics if missing
+    if (!user.statistics) {
+      user.statistics = {
+        notebooksCreated: 0,
+        quizzesCompleted: 0,
+        quizzesCreated: 0,
+        totalStudyTime: 0,
+        streakDays: 0,
+        lastActive: new Date()
+      };
+      needsSave = true;
+    }
+
+    // Initialize subscription if missing fields
+    if (!user.subscription || !user.subscription.plan) {
+      user.subscription = {
+        plan: 'free',
+        status: 'active',
+        startDate: null,
+        endDate: null,
+        trialUsed: false,
+        ...user.subscription
+      };
+      needsSave = true;
     }
 
     // Update allowed fields
@@ -99,10 +179,10 @@ export async function PUT(request: NextRequest) {
           user[key] = { ...user[key], ...updateData[key] };
         } else {
           user[key] = updateData[key];
-        }
-      }
+        }      }
     });
 
+    // Save the user (this includes both field initialization and updates)
     await user.save();
 
     // Sanitize user data
