@@ -129,7 +129,7 @@ ActivitySchema.index({ timestamp: -1 });
 // Generate unique activityId
 ActivitySchema.pre('save', function(next) {
   if (!this.activityId) {
-    this.activityId = `act_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    this.activityId = `act_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
   }
   next();
 });
@@ -196,7 +196,7 @@ ActivitySchema.statics.getActivityStats = async function(userId: string) {
     this.countDocuments({ userId, type: 'notebook_created' }),
     
     // Total learning hours
-    this.getTotalLearningHours(userId),
+    (this as unknown as IActivityModel).getTotalLearningHours(userId),
     
     // Get distinct active days
     this.aggregate([
@@ -230,13 +230,13 @@ ActivitySchema.statics.getActivityStats = async function(userId: string) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    const activityDates = recentActivities.map(activity => {
+    const activityDates = recentActivities.map((activity: { timestamp: Date }) => {
       const date = new Date(activity.timestamp);
       date.setHours(0, 0, 0, 0);
       return date.getTime();
     });
     
-    const uniqueDates = [...new Set(activityDates)].sort((a, b) => b - a);
+    const uniqueDates = ([...new Set(activityDates)] as number[]).sort((a, b) => b - a);
     
     let currentDate = today.getTime();
     for (const activityDate of uniqueDates) {
@@ -258,6 +258,6 @@ ActivitySchema.statics.getActivityStats = async function(userId: string) {
   };
 };
 
-const Activity = mongoose.models.Activity || mongoose.model<IActivity, IActivityModel>('Activity', ActivitySchema);
+const Activity = mongoose.models.Activity || mongoose.model<IActivity>('Activity', ActivitySchema);
 
 export default Activity;

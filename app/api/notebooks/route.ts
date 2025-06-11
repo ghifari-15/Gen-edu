@@ -3,7 +3,7 @@ import { AuthUtils } from '@/lib/auth/utils';
 import dbConnect from '@/lib/database/mongodb';
 import Notebook from '@/lib/models/Notebook';
 import User from '@/lib/models/User';
-import Activity from '@/lib/models/Activity';
+import { ActivityTracker } from '@/lib/utils/activity-tracker';
 
 export async function GET(request: NextRequest) {
   try {
@@ -144,11 +144,9 @@ export async function POST(request: NextRequest) {
       }      user.statistics.notebooksCreated += 1;
       user.statistics.lastActive = new Date();
       await user.save();
-    }
-
-    // Track activity
+    }    // Track activity
     try {
-      await (Activity as any).trackActivity(payload.userId, 'notebook_created', {
+      await ActivityTracker.trackActivity(payload.userId, 'notebook_created', {
         title: `Created notebook: ${title}`,
         description: description || 'New notebook created',
         metadata: {

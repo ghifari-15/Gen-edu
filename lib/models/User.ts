@@ -180,9 +180,7 @@ const UserSchema = new Schema<IUser>(
   }
 );
 
-// Indexes for performance
-UserSchema.index({ email: 1 });
-UserSchema.index({ userId: 1 });
+// Indexes for performance (role only, as email and userId are unique)
 UserSchema.index({ role: 1 });
 
 // Pre-save middleware untuk hash password

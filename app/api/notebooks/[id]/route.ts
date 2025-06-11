@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { AuthUtils } from '@/lib/auth/utils';
 import dbConnect from '@/lib/database/mongodb';
 import Notebook from '@/lib/models/Notebook';
-import Activity from '@/lib/models/Activity';
+import { ActivityTracker } from '@/lib/utils/activity-tracker';
 
 export async function GET(
   request: NextRequest,
@@ -136,9 +136,7 @@ export async function PUT(
           return total + cell.content.split(/\s+/).filter((word: string) => word.length > 0).length;
         }
         return total;
-      }, 0);
-
-      await (Activity as any).trackActivity(payload.userId, 'notebook_updated', {
+      }, 0);      await ActivityTracker.trackActivity(payload.userId, 'notebook_updated', {
         title: `Updated notebook: ${notebook.title}`,
         description: `Made changes to ${notebook.title}`,
         metadata: {

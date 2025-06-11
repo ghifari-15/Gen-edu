@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { AuthUtils } from '@/lib/auth/utils';
 import dbConnect from '@/lib/database/mongodb';
 import User from '@/lib/models/User';
-import Activity from '@/lib/models/Activity';
 import Notebook from '@/lib/models/Notebook';
+import { ActivityTracker } from '@/lib/utils/activity-tracker';
 
 export async function GET(request: NextRequest) {
   try {
@@ -28,19 +28,18 @@ export async function GET(request: NextRequest) {
     await dbConnect();
 
     // Get user basic info
-    const user = await User.findByUserId(payload.userId);
+    const user = await User.findOne({ userId: payload.userId });
     if (!user) {
       return NextResponse.json(
         { success: false, message: 'User not found' },
         { status: 404 }
       );
     }
-
     // Get activity statistics
-    const activityStats = await Activity.getActivityStats(payload.userId);
+    const activityStats = await ActivityTracker.getActivityStats(payload.userId);
     
     // Get recent activities
-    const recentActivities = await Activity.findByUserId(payload.userId, 10);
+    const recentActivities = await ActivityTracker.getRecentActivities(payload.userId, 10);
     
     // Get notebook count
     const notebookCount = await Notebook.countDocuments({ userId: payload.userId });

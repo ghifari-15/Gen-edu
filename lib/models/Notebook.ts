@@ -87,12 +87,10 @@ const CellSchema = new Schema<ICell>({
 });
 
 const NotebookSchema = new Schema<INotebook>(
-  {
-    notebookId: {
+  {    notebookId: {
       type: String,
       required: true,
       unique: true,
-      index: true,
     },
     title: {
       type: String,
@@ -102,11 +100,9 @@ const NotebookSchema = new Schema<INotebook>(
     description: {
       type: String,
       maxlength: 1000,
-    },
-    userId: {
+    },    userId: {
       type: String,
       required: true,
-      index: true,
     },
     cells: [CellSchema],
     metadata: {
@@ -192,8 +188,8 @@ const NotebookSchema = new Schema<INotebook>(
 );
 
 // Indexes
+// Indexes for performance
 NotebookSchema.index({ userId: 1, createdAt: -1 });
-NotebookSchema.index({ notebookId: 1 });
 NotebookSchema.index({ 'metadata.tags': 1 });
 NotebookSchema.index({ 'metadata.subjects': 1 });
 NotebookSchema.index({ 'sharing.isPublic': 1 });
