@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { Navbar } from "@/components/navbar"
 import { NotebookEditor } from "@/components/notebook/notebook-editor"
+import ProtectedRoute from "@/components/auth/ProtectedRoute"
 import { useParams } from "next/navigation"
 import { sampleNotebooks } from "@/data/sample-notebooks"
 
@@ -35,11 +36,12 @@ export default function NotebookDetailPage() {
       </main>
     )
   }
-
   return (
-    <main className="min-h-screen flex flex-col bg-gray-100">
-      <Navbar />
-      <NotebookEditor notebook={notebook} />
-    </main>
+    <ProtectedRoute>
+      <main className="min-h-screen flex flex-col bg-gray-100">
+        <Navbar />
+        <NotebookEditor notebook={notebook} />
+      </main>
+    </ProtectedRoute>
   )
 }
