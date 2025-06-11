@@ -114,9 +114,8 @@ export function Navbar() {
                           <p className="text-sm font-medium leading-none">{user.name}</p>
                           <p className="text-xs leading-none text-muted-foreground">
                             {user.email}
-                          </p>
-                          <p className="text-xs leading-none text-muted-foreground capitalize">
-                            {user.role} • {user.subscription.plan}
+                          </p>                          <p className="text-xs leading-none text-muted-foreground capitalize">
+                            {user.role} • {user.subscription?.plan || 'free'}
                           </p>
                         </div>
                       </DropdownMenuLabel>

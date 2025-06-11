@@ -22,10 +22,8 @@ export async function POST(request: NextRequest) {
         { success: false, message: 'Invalid email format' },
         { status: 400 }
       );
-    }
-
-    // Find user by email
-    const user = await User.findByEmail(email);
+    }    // Find user by email
+    const user = await User.findOne({ email: email.toLowerCase() });
     if (!user) {
       return NextResponse.json(
         { success: false, message: 'Invalid email or password' },
@@ -40,19 +38,14 @@ export async function POST(request: NextRequest) {
         { success: false, message: 'Invalid email or password' },
         { status: 401 }
       );
-    }
-
-    // Check if user is verified
-    if (!user.isVerified) {
+    }    // Check if user is verified
+    if (!user.isEmailVerified) {
       return NextResponse.json(
         { success: false, message: 'Please verify your email before logging in' },
         { status: 401 }
       );
-    }
-
-    // Update last login
+    }    // Update last login
     user.lastLogin = new Date();
-    user.statistics.lastActive = new Date();
     await user.save();
 
     // Generate JWT token

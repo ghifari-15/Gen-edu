@@ -32,32 +32,29 @@ export async function POST(request: NextRequest) {
         { success: false, message: passwordValidation.message },
         { status: 400 }
       );
-    }
-
-    // Check if user already exists
-    const existingUser = await User.findByEmail(email);
+    }    // Check if user already exists
+    const existingUser = await User.findOne({ email: email.toLowerCase() });
     if (existingUser) {
       return NextResponse.json(
         { success: false, message: 'Email address is already registered' },
         { status: 409 }
       );
-    }
-
-    // Generate verification token
+    }    // Generate verification token
     const verificationToken = AuthUtils.generateVerificationToken();
+
+    // Generate userId
+    const userId = `user_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
 
     // Create new user
     const userData = {
+      userId,
       name: name.trim(),
       email: email.toLowerCase().trim(),
-      password,
+      password, // Will be hashed by pre-save middleware
       role,
       avatar: AuthUtils.generateAvatarUrl(email),
-      verificationToken,
-      isVerified: false // Set to true for testing, false for production
-    };
-
-    const user = new User(userData);
+      isEmailVerified: true // Set to true for testing, false for production
+    };    const user = new User(userData);
     await user.save();
 
     // Generate JWT token
@@ -67,12 +64,7 @@ export async function POST(request: NextRequest) {
     const sanitizedUser = AuthUtils.sanitizeUser(user);
 
     // In production, send verification email here
-    // await sendVerificationEmail(user.email, verificationToken);
-
-    // For now, auto-verify the user for testing
-    user.isVerified = true;
-    user.verificationToken = undefined;
-    await user.save();
+    // await sendVerificationEmail(user.email, verificationToken)
 
     // Create response with cookie
     const response = NextResponse.json({

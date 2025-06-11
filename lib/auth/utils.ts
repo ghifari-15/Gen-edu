@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 import { IUser } from '@/lib/models/User';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-key';
@@ -34,6 +35,17 @@ export class AuthUtils {
       console.error('Token verification failed:', error);
       return null;
     }
+  }
+
+  // Hash password
+  static async hashPassword(password: string): Promise<string> {
+    const salt = await bcrypt.genSalt(12);
+    return bcrypt.hash(password, salt);
+  }
+
+  // Compare password
+  static async comparePassword(candidatePassword: string, hashedPassword: string): Promise<boolean> {
+    return bcrypt.compare(candidatePassword, hashedPassword);
   }
 
   // Generate verification token
@@ -75,10 +87,10 @@ export class AuthUtils {
     
     return { isValid: true, message: 'Password is valid' };
   }
-
   // Sanitize user data for client
   static sanitizeUser(user: IUser) {
-    const { password, verificationToken, resetPasswordToken, resetPasswordExpires, ...sanitizedUser } = user.toObject();
+    const userObj = user.toObject();
+    const { password, ...sanitizedUser } = userObj;
     return sanitizedUser;
   }
 

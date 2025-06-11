@@ -21,11 +21,9 @@ export async function GET(request: NextRequest) {
         { success: false, message: 'Invalid token' },
         { status: 401 }
       );
-    }
-
-    // Connect to database and get user
+    }    // Connect to database and get user
     await dbConnect();
-    const user = await User.findByUserId(payload.userId);
+    const user = await User.findOne({ userId: payload.userId });
     
     if (!user) {
       return NextResponse.json(
@@ -35,7 +33,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Update last active
-    user.statistics.lastActive = new Date();
+    user.lastLogin = new Date();
     await user.save();
 
     // Sanitize user data
