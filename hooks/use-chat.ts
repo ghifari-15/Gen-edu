@@ -7,6 +7,8 @@ export interface ChatMessage {
   time: string
   model?: 'claude-sonnet' | 'deepseek-reasoning'
   isStreaming?: boolean
+  thinking?: string
+  isThinking?: boolean
 }
 
 export interface UseChatReturn {
@@ -102,10 +104,10 @@ export function useChat(): UseChatReturn {
       const reader = response.body?.getReader()
       if (!reader) {
         throw new Error('No response body')
-      }
-
-      const decoder = new TextDecoder()
+      }      const decoder = new TextDecoder()
       let accumulatedText = ''
+      let thinkingContent = ''
+      let isInThinkingMode = false
 
       while (true) {
         const { done, value } = await reader.read()
@@ -124,19 +126,83 @@ export function useChat(): UseChatReturn {
                 setIsStreaming(false)
                 setMessages(prev => prev.map(msg => 
                   msg.id === aiMessageId 
-                    ? { ...msg, isStreaming: false }
+                    ? { ...msg, isStreaming: false, isThinking: false }
                     : msg
                 ))
                 break
               }
 
               if (data.content) {
-                accumulatedText += data.content
-                setMessages(prev => prev.map(msg => 
-                  msg.id === aiMessageId 
-                    ? { ...msg, text: accumulatedText }
-                    : msg
-                ))
+                const content = data.content
+                
+                // Handle thinking tags
+                if (content.includes('<think>')) {
+                  isInThinkingMode = true
+                  const thinkStart = content.indexOf('<think>') + 7
+                  const beforeThink = content.substring(0, content.indexOf('<think>'))
+                  const afterThink = content.substring(thinkStart)
+                  
+                  // Add content before think tag to main text
+                  if (beforeThink) {
+                    accumulatedText += beforeThink
+                  }
+                  
+                  // Start thinking content
+                  thinkingContent += afterThink
+                  
+                  setMessages(prev => prev.map(msg => 
+                    msg.id === aiMessageId 
+                      ? { 
+                          ...msg, 
+                          text: accumulatedText,
+                          thinking: thinkingContent,
+                          isThinking: true
+                        }
+                      : msg
+                  ))
+                } else if (content.includes('</think>')) {
+                  isInThinkingMode = false
+                  const thinkEnd = content.indexOf('</think>')
+                  const beforeEnd = content.substring(0, thinkEnd)
+                  const afterEnd = content.substring(thinkEnd + 8)
+                  
+                  // Add remaining thinking content
+                  thinkingContent += beforeEnd
+                  
+                  // Add content after think tag to main text
+                  accumulatedText += afterEnd
+                  
+                  setMessages(prev => prev.map(msg => 
+                    msg.id === aiMessageId 
+                      ? { 
+                          ...msg, 
+                          text: accumulatedText,
+                          thinking: thinkingContent,
+                          isThinking: false
+                        }
+                      : msg
+                  ))
+                } else if (isInThinkingMode) {
+                  // We're inside thinking tags, add to thinking content
+                  thinkingContent += content
+                  setMessages(prev => prev.map(msg => 
+                    msg.id === aiMessageId 
+                      ? { 
+                          ...msg, 
+                          thinking: thinkingContent,
+                          isThinking: true
+                        }
+                      : msg
+                  ))
+                } else {
+                  // Normal content, add to main text
+                  accumulatedText += content
+                  setMessages(prev => prev.map(msg => 
+                    msg.id === aiMessageId 
+                      ? { ...msg, text: accumulatedText }
+                      : msg
+                  ))
+                }
               }
 
               if (data.threadId && !threadId) {

@@ -3,9 +3,67 @@
 import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Send, X, Maximize, Minimize, BrainCircuit, Brain, Sparkles, RotateCcw } from "lucide-react"
+import { Send, X, Maximize, Minimize, BrainCircuit, Brain, Sparkles, RotateCcw, ChevronDown, ChevronUp } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useChat } from "@/hooks/use-chat"
+import { MarkdownRenderer } from "@/components/markdown-renderer"
+
+// ThinkingBar component for showing reasoning process
+function ThinkingBar({ thinking, isThinking }: { thinking?: string; isThinking?: boolean }) {
+  const [isExpanded, setIsExpanded] = useState(false)
+
+  if (!thinking && !isThinking) return null
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: "auto" }}
+      exit={{ opacity: 0, height: 0 }}
+      className="mt-2 border border-purple-600 rounded-lg bg-purple-900/20"
+    >
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full px-3 py-2 flex items-center justify-between text-sm font-medium text-purple-300 hover:bg-purple-800/30 rounded-t-lg transition-colors"
+      >
+        <div className="flex items-center space-x-2">
+          <Brain className="h-4 w-4" />
+          <span>Reasoning Process</span>
+          {isThinking && (
+            <div className="flex space-x-1">
+              <div className="w-1 h-1 bg-purple-400 rounded-full animate-bounce"></div>
+              <div className="w-1 h-1 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+              <div className="w-1 h-1 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+            </div>
+          )}
+        </div>
+        {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+      </button>
+      
+      <AnimatePresence>
+        {isExpanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden"
+          >            <div className="px-3 pb-3 text-sm text-purple-200 bg-purple-900/10 rounded-b-lg border-t border-purple-600">
+              <div className="max-h-48 overflow-y-auto">
+                <MarkdownRenderer 
+                  content={thinking || "Thinking..."} 
+                  className="text-xs leading-relaxed text-purple-200"
+                  isDark={true}
+                />
+                {isThinking && (
+                  <span className="inline-block w-2 h-3 bg-purple-400 ml-1 animate-pulse" />
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  )
+}
 
 // Define types for the component props
 interface ChatPopupProps {
@@ -155,22 +213,45 @@ export function ChatPopup({ isOpen, onClose }: ChatPopupProps) {
                           )}
                         </div>
                       </div>
-                    )}
-                    <div className="flex flex-col">
-                      <div
-                        className={`p-3 rounded-2xl ${
-                          message.sender === "user"
-                            ? "bg-indigo-600 text-white"
-                            : "bg-gray-800 text-white border border-gray-700"
-                        }`}
-                      >
-                        <div className="whitespace-pre-wrap">
-                          {message.text}
-                          {message.isStreaming && (
-                            <span className="inline-block w-2 h-4 bg-current ml-1 animate-pulse" />
+                    )}                    <div className="flex flex-col">
+                      {/* Thinking Bar - appears first for AI messages with reasoning */}
+                      {message.sender === "ai" && message.model === 'deepseek-reasoning' && (message.thinking || message.isThinking) && (
+                        <ThinkingBar 
+                          thinking={message.thinking} 
+                          isThinking={message.isThinking}
+                        />
+                      )}
+                        {/* Main message content - appears below thinking bar */}
+                      {message.text && (
+                        <div
+                          className={`p-3 rounded-2xl ${message.sender === "ai" && message.model === 'deepseek-reasoning' && (message.thinking || message.isThinking) ? 'mt-2' : ''} ${
+                            message.sender === "user"
+                              ? "bg-indigo-600 text-white"
+                              : "bg-gray-800 text-white border border-gray-700"
+                          }`}
+                        >
+                          {message.sender === "user" ? (
+                            <div className="whitespace-pre-wrap text-white">
+                              {message.text}
+                              {message.isStreaming && !message.isThinking && (
+                                <span className="inline-block w-2 h-4 bg-white ml-1 animate-pulse" />
+                              )}
+                            </div>
+                          ) : (
+                            <div className="prose prose-sm max-w-none prose-invert">
+                              <MarkdownRenderer 
+                                content={message.text} 
+                                className="text-white"
+                                isDark={true}
+                              />
+                              {message.isStreaming && !message.isThinking && (
+                                <span className="inline-block w-2 h-4 bg-white ml-1 animate-pulse" />
+                              )}
+                            </div>
                           )}
                         </div>
-                      </div>
+                      )}
+                      
                       <div
                         className={`text-xs text-gray-400 mt-1 flex items-center ${
                           message.sender === "user" ? "justify-end mr-1" : "ml-1"
