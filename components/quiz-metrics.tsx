@@ -110,19 +110,58 @@ export function QuizMetrics() {
               {loading ? '+--' : `${(stats?.growth.monthly ?? 0) >= 0 ? '+' : ''}${stats?.growth.monthly ?? 0}`}%
             </div>
             <span className="ml-2 text-gray-300 text-sm">vs last month</span>
-          </div>
-
-          <div className="mt-4 flex items-end space-x-1 h-20">
+          </div>          <div className="mt-4 flex items-end space-x-1 h-20 relative">
+            {/* Bar chart */}
             {chartData.map((height, index) => (
               <motion.div
                 key={index}
-                className="bg-lime-400 rounded-t w-full"
+                className="bg-lime-400 rounded-t w-full relative z-10"
                 style={{ height: `${height}%` }}
                 initial={{ height: 0 }}
                 animate={{ height: `${height}%` }}
                 transition={{ duration: 0.5 }}
               />
             ))}
+            
+            {/* Connecting line overlay */}
+            <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 20 }}>
+              <path
+                d={`M ${chartData.map((height, i) => {
+                  const x = ((i + 0.5) / chartData.length) * 100; // Center of each bar
+                  const y = 100 - height; // Top of each bar
+                  return `${x}% ${y}%`;
+                }).join(' L ')}`}
+                fill="none"
+                stroke="#ffffff"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="transition-all duration-1000"
+                style={{
+                  strokeDasharray: "1000",
+                  strokeDashoffset: "1000",
+                  animation: "dash 2s ease-in-out forwards"
+                }}
+              />
+              
+              {/* Data points */}
+              {chartData.map((height, index) => {
+                const x = ((index + 0.5) / chartData.length) * 100;
+                const y = 100 - height;
+                return (
+                  <circle
+                    key={index}
+                    cx={`${x}%`}
+                    cy={`${y}%`}
+                    r="3"
+                    fill="#ffffff"
+                    stroke="#84cc16"
+                    strokeWidth="2"
+                    className="transition-all duration-500"
+                  />
+                );
+              })}
+            </svg>
           </div>
         </div>
       </CardContent>

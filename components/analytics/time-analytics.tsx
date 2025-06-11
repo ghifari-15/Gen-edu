@@ -4,6 +4,7 @@ import { motion } from "framer-motion"
 import { Card, CardContent } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { useState, useEffect } from "react"
 
 interface TimeAnalyticsProps {
   timeRange: string;
@@ -20,59 +21,87 @@ interface TimeDataProps {
   weeklyAverage: number;
   longestSession: number;
   sessionsCompleted: number;
+  weeklyHours: number[];
+  timeBySubject: SubjectData[];
 }
 
 export function TimeAnalytics({ timeRange }: TimeAnalyticsProps) {
   const isMobile = useIsMobile()
+  const [timeData, setTimeData] = useState<TimeDataProps | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  const timeData: TimeDataProps = {
-    totalHours: 128,
-    weeklyAverage: 12.5,
-    longestSession: 2.5,
-    sessionsCompleted: 42,
+  useEffect(() => {
+    async function fetchTimeData() {
+      try {
+        const response = await fetch('/api/analytics/time')
+        if (response.ok) {
+          const data = await response.json()
+          if (data.success) {
+            setTimeData(data.timeData)
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching time analytics:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchTimeData()
+  }, [timeRange])
+
+  // Fallback data if no real data is available
+  const fallbackData: TimeDataProps = {
+    totalHours: 0,
+    weeklyAverage: 0,
+    longestSession: 0,
+    sessionsCompleted: 0,
+    weeklyHours: [0, 0, 0, 0, 0, 0, 0],
+    timeBySubject: []
   }
 
-  const timeBySubject: SubjectData[] = [
-    { name: "Machine Learning", hours: 45, color: "bg-indigo-600" },
-    { name: "Data Science", hours: 32, color: "bg-lime-500" },
-    { name: "Web Development", hours: 28, color: "bg-amber-500" },
-    { name: "AI Ethics", hours: 15, color: "bg-purple-500" },
-    { name: "Computer Vision", hours: 8, color: "bg-blue-500" },
-  ]
-
+  const currentData = timeData || fallbackData
+  const weeklyHours = currentData.weeklyHours
+  const timeBySubject = currentData.timeBySubject
   const totalSubjectHours = timeBySubject.reduce((sum, subject) => sum + subject.hours, 0)
-
-  const weeklyHours: number[] = [8, 10, 15, 12, 18, 20, 14]
+  
   const weeks: string[] = ["Week 1", "Week 2", "Week 3", "Week 4", "Week 5", "Week 6", "Week 7"]
   
   // Calculate max hours for proper scaling
-  const maxHours = Math.max(...weeklyHours)
+  const maxHours = Math.max(...weeklyHours, 1)
 
   return (
     <div className="space-y-8">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card className="border-gray-200 bg-white">
           <CardContent className="p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Time Summary</h3>
-            <div className="grid grid-cols-2 gap-6">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Time Summary</h3>            <div className="grid grid-cols-2 gap-6">
               <div>
                 <div className="text-sm font-medium text-gray-500 mb-1">Total Hours</div>
-                <div className="text-3xl font-bold text-indigo-600">{timeData.totalHours}</div>
+                <div className="text-3xl font-bold text-indigo-600">
+                  {loading ? '--' : currentData.totalHours}
+                </div>
               </div>
 
               <div>
                 <div className="text-sm font-medium text-gray-500 mb-1">Weekly Average</div>
-                <div className="text-3xl font-bold text-indigo-600">{timeData.weeklyAverage}h</div>
+                <div className="text-3xl font-bold text-indigo-600">
+                  {loading ? '--' : `${currentData.weeklyAverage}h`}
+                </div>
               </div>
 
               <div>
                 <div className="text-sm font-medium text-gray-500 mb-1">Longest Session</div>
-                <div className="text-3xl font-bold text-indigo-600">{timeData.longestSession}h</div>
+                <div className="text-3xl font-bold text-indigo-600">
+                  {loading ? '--' : `${currentData.longestSession}h`}
+                </div>
               </div>
 
               <div>
                 <div className="text-sm font-medium text-gray-500 mb-1">Sessions</div>
-                <div className="text-3xl font-bold text-indigo-600">{timeData.sessionsCompleted}</div>
+                <div className="text-3xl font-bold text-indigo-600">
+                  {loading ? '--' : currentData.sessionsCompleted}
+                </div>
               </div>
             </div>
           </CardContent>
@@ -192,9 +221,42 @@ export function TimeAnalytics({ timeRange }: TimeAnalyticsProps) {
                 ))}
               </div>
             </div>
+          </CardContent>        </Card>
+      </div>
+
+      {/* Time by Subject */}
+      {timeBySubject.length > 0 && (
+        <Card className="border-gray-200 bg-white">
+          <CardContent className="p-6">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Time by Subject</h3>
+            <div className="space-y-4">
+              {timeBySubject.map((subject, index) => (
+                <motion.div
+                  key={subject.name}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.3, delay: index * 0.1 }}
+                  className="flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-4 h-4 rounded ${subject.color}`} />
+                    <span className="font-medium text-gray-900">{subject.name}</span>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className="text-sm font-bold text-indigo-600">{subject.hours}h</span>
+                    <div className="w-24 md:w-32">
+                      <Progress
+                        value={totalSubjectHours > 0 ? (subject.hours / totalSubjectHours) * 100 : 0}
+                        className="h-2"
+                      />
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
           </CardContent>
         </Card>
-      </div>
+      )}
 
       <div className="p-4 bg-indigo-50 rounded-lg border border-indigo-100">
         <div className="text-sm text-indigo-900">

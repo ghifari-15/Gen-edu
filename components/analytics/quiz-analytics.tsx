@@ -6,24 +6,18 @@ import { Progress } from "@/components/ui/progress"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { useState, useEffect } from "react"
 
-// Add CSS for chart animations
-const chartStyles = `
-  @keyframes dash {
-    to {
-      stroke-dashoffset: 0;
-    }
-  }
-`;
-
 interface QuizAnalyticsProps {
   timeRange: string;
 }
 
 interface QuizData {
+  id: string;
   name: string;
   score: number;
   questions: number;
+  difficulty: string;
   date: string;
+  timestamp: string;
 }
 
 interface ScoreDistribution {
@@ -36,6 +30,7 @@ interface QuizStats {
   totalQuizzes: number;
   totalAttempts: number;
   completionRate: number;
+  averageScore: number;
   chartData: number[];
   growth: {
     daily: number;
@@ -52,48 +47,74 @@ interface QuizStats {
 export function QuizAnalytics({ timeRange }: QuizAnalyticsProps) {
   const isMobile = useIsMobile()
   const [stats, setStats] = useState<QuizStats | null>(null)
+  const [recentQuizzes, setRecentQuizzes] = useState<QuizData[]>([])
   const [loading, setLoading] = useState(true)
+  const [scoreDistribution, setScoreDistribution] = useState<ScoreDistribution[]>([
+    { range: "90-100%", count: 0, color: "bg-green-500" },
+    { range: "80-89%", count: 0, color: "bg-lime-500" },
+    { range: "70-79%", count: 0, color: "bg-yellow-500" },
+    { range: "60-69%", count: 0, color: "bg-orange-500" },
+    { range: "0-59%", count: 0, color: "bg-red-500" },
+  ])
+  
   useEffect(() => {
-    async function fetchQuizStats() {
+    async function fetchData() {
       try {
-        const response = await fetch('/api/quiz/stats')
-        if (response.ok) {
-          const data = await response.json()
-          if (data.success) {
-            setStats(data.stats)
+        // Fetch quiz stats
+        const [statsResponse, recentResponse] = await Promise.all([
+          fetch('/api/quiz/stats'),
+          fetch('/api/quiz/recent')
+        ])
+
+        if (statsResponse.ok) {
+          const statsData = await statsResponse.json()
+          if (statsData.success) {
+            setStats(statsData.stats)
+          }
+        }
+
+        if (recentResponse.ok) {
+          const recentData = await recentResponse.json()
+          if (recentData.success) {
+            setRecentQuizzes(recentData.results)
+            
+            // Calculate score distribution from recent results
+            const distribution = [
+              { range: "90-100%", count: 0, color: "bg-green-500" },
+              { range: "80-89%", count: 0, color: "bg-lime-500" },
+              { range: "70-79%", count: 0, color: "bg-yellow-500" },
+              { range: "60-69%", count: 0, color: "bg-orange-500" },
+              { range: "0-59%", count: 0, color: "bg-red-500" },
+            ]
+            
+            recentData.results.forEach((quiz: QuizData) => {
+              if (quiz.score >= 90) distribution[0].count++
+              else if (quiz.score >= 80) distribution[1].count++
+              else if (quiz.score >= 70) distribution[2].count++
+              else if (quiz.score >= 60) distribution[3].count++
+              else distribution[4].count++
+            })
+            
+            setScoreDistribution(distribution)
           }
         }
       } catch (error) {
-        console.error('Error fetching quiz stats:', error)
+        console.error('Error fetching analytics data:', error)
       } finally {
         setLoading(false)
       }
     }
 
-    fetchQuizStats()
+    fetchData()
   }, [timeRange])
 
-  // Mock data for demonstration (replace with real data when available)
-  const quizzes: QuizData[] = [
-    { name: "Machine Learning Fundamentals", score: 92, questions: 15, date: "Apr 5, 2025" },
-    { name: "Data Structures & Algorithms", score: 85, questions: 20, date: "Apr 2, 2025" },
-    { name: "Web Development with React", score: 78, questions: 12, date: "Mar 28, 2025" },
-    { name: "AI Ethics and Considerations", score: 95, questions: 10, date: "Mar 25, 2025" },
-    { name: "Python Programming", score: 88, questions: 18, date: "Mar 20, 2025" },
-  ]
-
-  const averageScore = stats?.completionRate || quizzes.reduce((sum, quiz) => sum + quiz.score, 0) / quizzes.length
-  const totalQuestions = quizzes.reduce((sum, quiz) => sum + quiz.questions, 0)
-  const totalAttempts = stats?.totalAttempts || quizzes.length
-  const highestScore = Math.max(...quizzes.map(q => q.score))
-
-  const scoreDistribution: ScoreDistribution[] = [
-    { range: "90-100%", count: 2, color: "bg-green-500" },
-    { range: "80-89%", count: 2, color: "bg-lime-500" },
-    { range: "70-79%", count: 1, color: "bg-yellow-500" },
-    { range: "60-69%", count: 0, color: "bg-orange-500" },
-    { range: "0-59%", count: 0, color: "bg-red-500" },
-  ]
+  const averageScore = stats?.averageScore || (recentQuizzes.length > 0 
+    ? recentQuizzes.reduce((sum, quiz) => sum + quiz.score, 0) / recentQuizzes.length 
+    : 0)
+  const totalQuestions = recentQuizzes.reduce((sum, quiz) => sum + quiz.questions, 0)
+  const totalAttempts = stats?.totalAttempts || recentQuizzes.length
+  const highestScore = recentQuizzes.length > 0 ? Math.max(...recentQuizzes.map(q => q.score)) : 0
+  const maxDistributionCount = Math.max(...scoreDistribution.map(d => d.count)) || 4
 
   return (
     <div className="space-y-8">
@@ -106,12 +127,10 @@ export function QuizAnalytics({ timeRange }: QuizAnalyticsProps) {
                 <div className="text-3xl font-bold text-indigo-600">
                   {loading ? '--' : `${averageScore.toFixed(1)}%`}
                 </div>
-              </div>
-
-              <div>
+              </div>              <div>
                 <div className="text-sm font-medium text-gray-500 mb-1">Quizzes Taken</div>
                 <div className="text-3xl font-bold text-indigo-600">
-                  {loading ? '--' : (stats?.totalAttempts || quizzes.length)}
+                  {loading ? '--' : (stats?.totalAttempts || recentQuizzes.length)}
                 </div>
               </div>
 
@@ -133,13 +152,12 @@ export function QuizAnalytics({ timeRange }: QuizAnalyticsProps) {
         </Card>        <Card className="border-gray-200 col-span-1 md:col-span-2 bg-white">
           <CardContent className="p-6">
             <h3 className="text-lg font-medium text-gray-900 mb-4">Score Distribution</h3>
-            <div className="h-64 relative bg-gray-50 rounded-lg p-4">
-              {/* Y-axis labels */}
+            <div className="h-64 relative bg-gray-50 rounded-lg p-4">              {/* Y-axis labels */}
               <div className="absolute left-2 top-4 bottom-12 w-8 flex flex-col justify-between text-xs text-gray-500">
-                <div>4</div>
-                <div>3</div>
-                <div>2</div>
-                <div>1</div>
+                <div>{maxDistributionCount}</div>
+                <div>{Math.round(maxDistributionCount * 0.75)}</div>
+                <div>{Math.round(maxDistributionCount / 2)}</div>
+                <div>{Math.round(maxDistributionCount * 0.25)}</div>
                 <div>0</div>
               </div>
               
@@ -160,12 +178,11 @@ export function QuizAnalytics({ timeRange }: QuizAnalyticsProps) {
                       <stop offset="100%" stopColor="#4f46e5" stopOpacity="0" />
                     </linearGradient>
                   </defs>
-                  
-                  {/* Area under the line */}
+                    {/* Area under the line */}
                   <path
                     d={`M ${scoreDistribution.map((item, i) => {
                       const x = (i / (scoreDistribution.length - 1)) * 100;
-                      const y = 100 - ((item.count / 4) * 100);
+                      const y = 100 - ((item.count / (maxDistributionCount || 1)) * 100);
                       return `${x}% ${y}%`;
                     }).join(' L ')} L 100% 100% L 0% 100% Z`}
                     fill="url(#scoreGradient)"
@@ -176,7 +193,7 @@ export function QuizAnalytics({ timeRange }: QuizAnalyticsProps) {
                   <path
                     d={`M ${scoreDistribution.map((item, i) => {
                       const x = (i / (scoreDistribution.length - 1)) * 100;
-                      const y = 100 - ((item.count / 4) * 100);
+                      const y = 100 - ((item.count / (maxDistributionCount || 1)) * 100);
                       return `${x}% ${y}%`;
                     }).join(' L ')}`}
                     fill="none"
@@ -195,7 +212,7 @@ export function QuizAnalytics({ timeRange }: QuizAnalyticsProps) {
                   {/* Data points */}
                   {scoreDistribution.map((item, index) => {
                     const x = (index / (scoreDistribution.length - 1)) * 100;
-                    const y = 100 - ((item.count / 4) * 100);
+                    const y = 100 - ((item.count / (maxDistributionCount || 1)) * 100);
                     return (
                       <g key={index}>
                         <circle
@@ -251,48 +268,43 @@ export function QuizAnalytics({ timeRange }: QuizAnalyticsProps) {
       </div>
 
       <div>
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Recent Quiz Results</h3>
-        <div className="space-y-4">
-          {quizzes.map((quiz, index) => (
-            <motion.div
-              key={quiz.name}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: index * 0.05 }}
-            >
-              <Card className="border-gray-200 bg-white">
-                <CardContent className="p-4">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-                    <div>
-                      <div className="font-bold text-indigo-600">{quiz.name}</div>
-                      <div className="text-sm text-gray-500">
-                        {quiz.date} • {quiz.questions} questions
+        <h3 className="text-lg font-medium text-gray-900 mb-4">Recent Quiz Results</h3>        <div className="space-y-4">
+          {loading ? (
+            <div className="text-center py-8 text-gray-500">Loading quiz results...</div>
+          ) : recentQuizzes.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">No quiz results yet</div>
+          ) : (
+            recentQuizzes.map((quiz, index) => (
+              <motion.div
+                key={quiz.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: index * 0.05 }}
+              >
+                <Card className="border-gray-200 bg-white">
+                  <CardContent className="p-4">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+                      <div>
+                        <div className="font-bold text-indigo-600">{quiz.name}</div>
+                        <div className="text-sm text-gray-500">
+                          {quiz.date} • {quiz.questions} questions • {quiz.difficulty}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="text-lg font-bold text-indigo-600">{quiz.score}%</div>
+                        <div className="w-24 md:w-32">
+                          <Progress
+                            value={quiz.score}
+                            className={`h-2`}
+                          />
+                        </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
-                      <div className="text-lg font-bold text-indigo-600">{quiz.score}%</div>
-                      <div className="w-24 md:w-32">
-                        <Progress
-                          value={quiz.score}
-                          className={`h-2 ${
-                            quiz.score >= 90
-                              ? "bg-green-500"
-                              : quiz.score >= 80
-                                ? "bg-lime-500"
-                                : quiz.score >= 70
-                                  ? "bg-yellow-500"
-                                  : quiz.score >= 60
-                                    ? "bg-orange-500"
-                                    : "bg-red-500"
-                          }`}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          ))}
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))
+          )}
         </div>
       </div>
     </div>
