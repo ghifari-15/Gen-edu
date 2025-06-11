@@ -159,9 +159,9 @@ export async function POST(request: NextRequest) {
     // Map difficulty levels correctly
     const mapDifficulty = (diff: string) => {
       const lower = diff.toLowerCase()
-      if (lower === 'easy') return { questionDiff: 'easy' as const, metaDiff: 'beginner' as const }
-      if (lower === 'medium') return { questionDiff: 'medium' as const, metaDiff: 'intermediate' as const }
-      if (lower === 'hard') return { questionDiff: 'hard' as const, metaDiff: 'advanced' as const }
+      if (lower === 'easy') return { questionDiff: 'easy' as const, metaDiff: 'easy' as const }
+      if (lower === 'medium') return { questionDiff: 'medium' as const, metaDiff: 'medium' as const }
+      if (lower === 'hard') return { questionDiff: 'hard' as const, metaDiff: 'hard' as const }
       return { questionDiff: 'medium' as const, metaDiff: 'intermediate' as const }
     }
     
