@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -40,6 +41,34 @@ import { Input } from "@/components/ui/input"
 import { useIsMobile } from "@/hooks/use-mobile"
 import Link from "next/link"
 
+interface Cell {
+  id: string;
+  type: 'markdown' | 'code' | 'text';
+  content: string;
+  metadata?: {
+    language?: string;
+    tags?: string[];
+    collapsed?: boolean;
+  };
+  outputs?: any[];
+  executionCount?: number;
+}
+
+interface NotebookData {
+  _id?: string;
+  notebookId: string;
+  title: string;
+  description?: string;
+  cells: Cell[];
+  metadata: {
+    language: string;
+    tags: string[];
+    difficulty?: 'beginner' | 'intermediate' | 'advanced';
+    estimatedTime?: number;
+    subjects: string[];
+  };
+}
+
 interface NotebookProps {
   id: string;
   title: string;
@@ -48,9 +77,18 @@ interface NotebookProps {
   updatedAt?: string;
 }
 
-export function NotebookEditor({ notebook }: { notebook: NotebookProps }) {
-  const [content, setContent] = useState<string>(notebook.content)
-  const [title, setTitle] = useState<string>(notebook.title)
+interface NotebookEditorProps {
+  notebookId?: string;
+  notebook?: NotebookProps;
+}
+
+export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
+  // State for notebook data
+  const [notebookData, setNotebookData] = useState<NotebookProps | null>(notebook || null)
+  const [loading, setLoading] = useState(!notebook)
+  const [error, setError] = useState<string | null>(null)
+    const [content, setContent] = useState<string>(notebook?.content || '')
+  const [title, setTitle] = useState<string>(notebook?.title || '')
   const [activeTab, setActiveTab] = useState<string>("notes")
   const [aiMessages, setAiMessages] = useState<Array<{id: string, role: 'user' | 'ai', content: string}>>([
     { id: '1', role: 'ai', content: "Hello! I'm your AI assistant. How can I help with your notes today?" }
@@ -65,6 +103,58 @@ export function NotebookEditor({ notebook }: { notebook: NotebookProps }) {
   const isMobile = useIsMobile()
   const editorRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Fetch notebook data if only notebookId is provided
+  useEffect(() => {
+    if (notebookId && !notebook) {
+      const fetchNotebook = async () => {
+        try {
+          setLoading(true)
+          const response = await fetch(`/api/notebooks/${notebookId}`)
+          if (!response.ok) {
+            throw new Error('Failed to fetch notebook')
+          }
+          const data = await response.json()
+          if (data.success) {
+            // Convert cell-based content to simple HTML content
+            let htmlContent = ''
+            if (data.notebook.cells && Array.isArray(data.notebook.cells)) {
+              htmlContent = data.notebook.cells.map((cell: any) => {
+                if (cell.type === 'markdown') {
+                  return `<div>${cell.content}</div>`
+                } else if (cell.type === 'code') {
+                  return `<pre><code>${cell.content}</code></pre>`
+                } else {
+                  return `<div>${cell.content}</div>`
+                }
+              }).join('\n')
+            } else if (data.notebook.content) {
+              htmlContent = data.notebook.content
+            }
+            
+            const notebookData: NotebookProps = {
+              id: data.notebook.notebookId,
+              title: data.notebook.title,
+              content: htmlContent,
+              createdAt: data.notebook.createdAt,
+              updatedAt: data.notebook.updatedAt,
+            }
+            setNotebookData(notebookData)
+            setTitle(notebookData.title)
+            setContent(notebookData.content)
+          } else {
+            setError(data.message || 'Failed to fetch notebook')
+          }
+        } catch (err) {
+          setError('Failed to load notebook')
+          console.error('Error fetching notebook:', err)
+        } finally {
+          setLoading(false)
+        }
+      }
+      fetchNotebook()
+    }
+  }, [notebookId, notebook])
   // Rich text formatting functions
   const applyFormat = useCallback((command: string, value?: string) => {
     document.execCommand(command, false, value)
@@ -263,25 +353,49 @@ export function NotebookEditor({ notebook }: { notebook: NotebookProps }) {
     }
     input.click()
   }
-
   // Auto-save logic
   const saveTimeout = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
+    const currentNotebook = notebookData || notebook
+    if (!currentNotebook) return
+    
     if (saveTimeout.current) clearTimeout(saveTimeout.current)
     saveTimeout.current = setTimeout(() => {
       localStorage.setItem(
-        `notebook-${notebook.id}`,
-        JSON.stringify({ ...notebook, title, content })
+        `notebook-${currentNotebook.id}`,
+        JSON.stringify({ ...currentNotebook, title, content })
       )
+      
+      // Save to server if notebookId exists
+      if (notebookId) {
+        fetch(`/api/notebooks/${notebookId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            title,
+            cells: [{
+              id: 'main-content',
+              type: 'text',
+              content: content,
+              metadata: { language: 'html' }
+            }]
+          }),
+        }).catch(err => console.error('Auto-save failed:', err))
+      }
     }, 1000)
     return () => {
       if (saveTimeout.current) clearTimeout(saveTimeout.current)
     }
-  }, [title, content, notebook])
+  }, [title, content, notebookData, notebook, notebookId])
 
   useEffect(() => {
-    const saved = localStorage.getItem(`notebook-${notebook.id}`)
+    const currentNotebook = notebookData || notebook
+    if (!currentNotebook) return
+    
+    const saved = localStorage.getItem(`notebook-${currentNotebook.id}`)
     if (saved) {
       const parsed = JSON.parse(saved)
       setTitle(parsed.title)
@@ -292,7 +406,40 @@ export function NotebookEditor({ notebook }: { notebook: NotebookProps }) {
     } else if (editorRef.current) {
       editorRef.current.innerHTML = content
     }
-  }, [notebook.id])
+  }, [notebookData, notebook])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-64px)]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading notebook...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-64px)]">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">{error}</p>
+          <Button onClick={() => window.location.reload()}>
+            Try Again
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  const currentNotebook = notebookData || notebook
+  if (!currentNotebook) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-64px)]">
+        <p className="text-gray-600">Notebook not found</p>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col h-[calc(100vh-64px)]">
