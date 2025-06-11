@@ -4,7 +4,6 @@ import { Navbar } from "@/components/navbar"
 import { GeneratedQuizPreview } from "@/components/quiz/generated-quiz-preview"
 import { useParams } from "next/navigation"
 import { useEffect, useState } from "react"
-import { sampleQuizzes } from "@/data/sample-quizzes"
 import { motion } from "framer-motion"
 
 interface Question {
@@ -20,6 +19,7 @@ interface Quiz {
   description: string;
   totalQuestions: number;
   difficulty: string;
+  estimatedTime: number;
   questions: Question[];
 }
 
@@ -27,22 +27,71 @@ export default function GeneratedQuizPage() {
   const params = useParams()
   const quizId = params.id as string
   const [quiz, setQuiz] = useState<Quiz | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     // Reset scroll position to top when component mounts
     window.scrollTo(0, 0)
 
-    // In a real app, you would fetch the quiz from an API
-    const foundQuiz = sampleQuizzes.find((q) => q.id === quizId) || sampleQuizzes[0]
-    setQuiz(foundQuiz as Quiz)
+    const fetchQuiz = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        
+        const response = await fetch(`/api/quiz/${quizId}`)
+        
+        if (!response.ok) {
+          if (response.status === 404) {
+            throw new Error('Quiz not found')
+          }
+          throw new Error('Failed to fetch quiz')
+        }
+        
+        const quizData = await response.json()
+        setQuiz(quizData)
+      } catch (err) {
+        console.error('Error fetching quiz:', err)
+        setError(err instanceof Error ? err.message : 'Failed to load quiz')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    if (quizId) {
+      fetchQuiz()
+    }
   }, [quizId])
 
-  if (!quiz) {
+  if (loading) {
     return (
       <main className="min-h-screen flex flex-col bg-gray-100">
         <Navbar />
         <div className="flex-1 flex items-center justify-center">
-          <div className="animate-pulse">Loading quiz details...</div>
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+            <div className="text-gray-600">Loading quiz details...</div>
+          </div>
+        </div>
+      </main>
+    )
+  }
+
+  if (error || !quiz) {
+    return (
+      <main className="min-h-screen flex flex-col bg-gray-100">
+        <Navbar />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <div className="text-red-600 mb-4">❌</div>
+            <div className="text-gray-600">{error || 'Quiz not found'}</div>
+            <button 
+              onClick={() => window.location.href = '/quiz/create'}
+              className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+            >
+              Create New Quiz
+            </button>
+          </div>
         </div>
       </main>
     )

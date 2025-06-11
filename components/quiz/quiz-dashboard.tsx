@@ -6,14 +6,49 @@ import { motion } from "framer-motion"
 import { Plus, List, BarChart, Clock } from "lucide-react"
 import Link from "next/link"
 import { useState, useEffect } from "react"
-import { sampleQuizzes } from "@/data/sample-quizzes"
 import { useIsMobile } from "@/hooks/use-mobile"
+
+interface Quiz {
+  id: string;
+  title: string;
+  description: string;
+  difficulty: string;
+  totalQuestions: number;
+  estimatedTime?: number;
+  totalAttempts: number;
+  averageScore: number;
+  createdAt: string;
+}
 
 export function QuizDashboard() {
   const [count, setCount] = useState(0)
   const [chartData, setChartData] = useState([0, 0, 0, 0, 0, 0, 0])
+  const [recentQuizzes, setRecentQuizzes] = useState<Quiz[]>([])
+  const [loading, setLoading] = useState(true)
   const finalChartData = [20, 35, 45, 60, 40, 50, 65]
   const isMobile = useIsMobile()
+
+  // Fetch recent quizzes from API
+  useEffect(() => {
+    async function fetchQuizzes() {
+      try {
+        const response = await fetch('/api/quiz')
+        if (response.ok) {
+          const data = await response.json()
+          if (data.success) {
+            // Get only the most recent 6 quizzes for the dashboard
+            setRecentQuizzes(data.quizzes.slice(0, 6))
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching quizzes:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    
+    fetchQuizzes()
+  }, [])
 
   useEffect(() => {
     const countInterval = setInterval(() => {
@@ -183,38 +218,75 @@ export function QuizDashboard() {
           <Link href="/quiz/all" className="text-indigo-600 hover:text-indigo-800 text-sm font-medium">
             View All
           </Link>
-        </div>
+        </div>        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {loading ? (
+            // Loading skeleton
+            Array.from({ length: 6 }).map((_, index) => (
+              <motion.div key={index} variants={item}>
+                <Card className="h-full bg-white border-gray-200 shadow-sm animate-pulse">
+                  <CardContent className="p-6">
+                    <div className="h-6 bg-gray-200 rounded mb-2"></div>
+                    <div className="h-4 bg-gray-200 rounded mb-6"></div>
+                    <div className="flex flex-wrap items-center gap-4 mb-6">
+                      <div className="h-4 bg-gray-200 rounded w-20"></div>
+                      <div className="h-4 bg-gray-200 rounded w-16"></div>
+                      <div className="h-4 bg-gray-200 rounded w-24"></div>
+                    </div>
+                    <div className="h-10 bg-gray-200 rounded"></div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))
+          ) : recentQuizzes.length > 0 ? (
+            recentQuizzes.map((quiz: Quiz, index: number) => (
+              <motion.div key={quiz.id} variants={item} whileHover={{ y: -5, transition: { duration: 0.2 } }}>
+                <Card className="h-full bg-white border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                  <CardContent className="p-6">
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">{quiz.title}</h3>
+                    <p className="text-gray-600 mb-6">{quiz.description}</p>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {sampleQuizzes.map((quiz, index) => (
-            <motion.div key={quiz.id} variants={item} whileHover={{ y: -5, transition: { duration: 0.2 } }}>
-              <Card className="h-full bg-white border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                <CardContent className="p-6">
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">{quiz.title}</h3>
-                  <p className="text-gray-600 mb-6">{quiz.description}</p>
+                    <div className="flex flex-wrap items-center gap-4 mb-6">
+                      <div className="flex items-center text-sm text-gray-500">
+                        <List className="h-4 w-4 mr-1" />
+                        <span>{quiz.totalQuestions} Questions</span>
+                      </div>
+                      <div className="flex items-center text-sm text-gray-500">
+                        <BarChart className="h-4 w-4 mr-1" />
+                        <span className="capitalize">{quiz.difficulty}</span>
+                      </div>
+                      <div className="flex items-center text-sm text-gray-500">
+                        <Clock className="h-4 w-4 mr-1" />
+                        <span>{new Date(quiz.createdAt).toLocaleDateString()}</span>
+                      </div>
+                    </div>
 
-                  <div className="flex flex-wrap items-center gap-4 mb-6">
-                    <div className="flex items-center text-sm text-gray-500">
-                      <List className="h-4 w-4 mr-1" />
-                      <span>{quiz.totalQuestions} Questions</span>
-                    </div>
-                    <div className="flex items-center text-sm text-gray-500">
-                      <BarChart className="h-4 w-4 mr-1" />
-                      <span>{quiz.difficulty}</span>
-                    </div>
-                    <div className="flex items-center text-sm text-gray-500">
-                      <Clock className="h-4 w-4 mr-1" />
-                      <span>{quiz.date}</span>
-                    </div>
+                    <Link href={`/quiz/${quiz.id}`}>
+                      <Button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white">Take Quiz</Button>
+                    </Link>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))
+          ) : (
+            // Empty state
+            <motion.div variants={item} className="col-span-full">
+              <Card className="bg-white border-gray-200 shadow-sm">
+                <CardContent className="p-12 text-center">
+                  <div className="text-gray-400 mb-4">
+                    <List className="h-16 w-16 mx-auto mb-4" />
+                    <h3 className="text-xl font-medium text-gray-900 mb-2">No quizzes yet</h3>
+                    <p className="text-gray-600 mb-6">Create your first quiz to get started!</p>
+                    <Link href="/quiz/create">
+                      <Button className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Create Your First Quiz
+                      </Button>
+                    </Link>
                   </div>
-
-                  <Link href={`/quiz/${quiz.id}`}>
-                    <Button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white">Take Quiz</Button>
-                  </Link>
                 </CardContent>
               </Card>
             </motion.div>
-          ))}
+          )}
         </div>
       </div>
     </motion.div>

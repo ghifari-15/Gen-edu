@@ -60,27 +60,55 @@ export function QuizTaker({ quiz }: { quiz: QuizProps }) {
       setCurrentQuestionIndex(currentQuestionIndex - 1)
     }
   }
-
-  const handleNext = (): void => {
+  const handleNext = async (): Promise<void> => {
     if (currentQuestionIndex < quiz.questions.length - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1)
     } else {
-      // Last question
+      // Last question - submit quiz
       setIsCompleted(true)
 
-      // Calculate score
-      let correctAnswers = 0
-      Object.keys(selectedAnswers).forEach((questionId) => {
-        const question = quiz.questions.find((q) => q.id === questionId)
-        if (question && selectedAnswers[questionId] === question.correctAnswer) {
-          correctAnswers++
+      try {
+        // Convert selectedAnswers to the format expected by the API
+        const answers: { [key: string]: string } = {}
+        Object.keys(selectedAnswers).forEach((questionId) => {
+          const question = quiz.questions.find((q) => q.id === questionId)
+          if (question && selectedAnswers[questionId] !== undefined) {
+            answers[questionId] = question.options[selectedAnswers[questionId]]
+          }
+        })
+
+        const response = await fetch(`/api/quiz/${quiz.id}/submit`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ answers }),
+        })
+
+        const data = await response.json()
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to submit quiz')
         }
-      })
 
-      const score = Math.round((correctAnswers / quiz.questions.length) * 100)
-
-      // Redirect to results page
-      router.push(`/quiz/${quiz.id}/results?score=${score}&time=${timeSpent}`)
+        if (data.success && data.results) {
+          // Redirect to results page with actual results
+          const params = new URLSearchParams({
+            score: data.results.percentage.toString(),
+            correct: data.results.correctAnswers.toString(),
+            total: data.results.totalQuestions.toString(),
+            time: timeSpent.toString(),
+            passed: data.results.passed.toString()
+          })
+          router.push(`/quiz/${quiz.id}/results?${params.toString()}`)
+        } else {
+          throw new Error('Invalid response format')
+        }
+      } catch (error) {
+        console.error('Quiz submission error:', error)
+        alert(error instanceof Error ? error.message : 'Failed to submit quiz. Please try again.')
+        setIsCompleted(false)
+      }
     }
   }
 

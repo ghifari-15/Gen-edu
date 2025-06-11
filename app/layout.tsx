@@ -17,9 +17,9 @@ export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
-}>) {
-  return (
-    <html lang="en" suppressHydrationWarning>      <body className={`${inter.className} pb-safe`}>
+}>) {  return (
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${inter.className} pb-safe`}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
           <AuthProvider>
             <OnboardingWrapper>
