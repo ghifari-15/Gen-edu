@@ -4,7 +4,6 @@ import dbConnect from '@/lib/database/mongodb';
 import User from '@/lib/models/User';
 import Notebook from '@/lib/models/Notebook';
 import Quiz from '@/lib/models/Quiz';
-import { Activity } from '@/lib/models/Activity';
 import { ActivityTracker } from '@/lib/utils/activity-tracker';
 
 export async function GET(request: NextRequest) {

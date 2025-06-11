@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
 
     // Connect to database and get user
     await dbConnect();
-    const user = await User.findByUserId(payload.userId);
+    const user = await User.findById(payload.userId);
     
     if (!user) {
       return NextResponse.json(
@@ -124,9 +124,11 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const updateData = await request.json();    // Connect to database and get user
+    const updateData = await request.json();
+
+    // Connect to database and get user
     await dbConnect();
-    const user = await User.findByUserId(payload.userId);
+    const user = await User.findById(payload.userId);
     
     if (!user) {
       return NextResponse.json(
@@ -162,7 +164,30 @@ export async function PUT(request: NextRequest) {
         ...user.subscription
       };
       needsSave = true;
-    }    // Update allowed fields
+    }
+
+    // Initialize preferences if missing
+    if (!user.preferences) {
+      user.preferences = {
+        theme: 'light',
+        language: 'id',
+        notifications: true
+      };
+      needsSave = true;
+    }
+
+    // Initialize profile if missing
+    if (!user.profile) {
+      user.profile = {
+        bio: null,
+        institution: null,
+        grade: null,
+        subjects: []
+      };
+      needsSave = true;
+    }
+
+    // Update allowed fields
     const allowedUpdates = [
       'name',
       'avatar',
