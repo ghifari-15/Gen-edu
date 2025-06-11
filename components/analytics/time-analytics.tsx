@@ -76,14 +76,12 @@ export function TimeAnalytics({ timeRange }: TimeAnalyticsProps) {
               </div>
             </div>
           </CardContent>
-        </Card>
-
-        <Card className="border-gray-200 bg-white">
+        </Card>        <Card className="border-gray-200 bg-white">
           <CardContent className="p-6">
             <h3 className="text-lg font-medium text-gray-900 mb-4">Weekly Study Hours</h3>
             <div className="h-64 relative bg-gray-50 rounded-lg p-4">
               {/* Y-axis labels */}
-              <div className="absolute left-2 top-0 bottom-8 w-10 flex flex-col justify-between text-xs text-gray-500">
+              <div className="absolute left-2 top-4 bottom-12 w-10 flex flex-col justify-between text-xs text-gray-500">
                 <div>{maxHours}h</div>
                 <div>{Math.round(maxHours * 0.75)}h</div>
                 <div>{Math.round(maxHours / 2)}h</div>
@@ -92,48 +90,52 @@ export function TimeAnalytics({ timeRange }: TimeAnalyticsProps) {
               </div>
 
               {/* Grid lines */}
-              <div className="absolute left-12 right-4 top-0 bottom-8 flex flex-col justify-between">
+              <div className="absolute left-14 right-4 top-4 bottom-12 flex flex-col justify-between">
                 {[0, 1, 2, 3, 4].map((line) => (
                   <div key={line} className="border-t border-gray-200 w-full" />
                 ))}
               </div>
 
-              {/* Line chart container */}
-              <div className="ml-12 mr-4 h-full flex flex-col pt-0 pb-8 relative">
-                {/* Line points and path */}
-                <svg className="w-full h-full absolute top-0 left-0 overflow-visible">
-                  {/* Line path with animation */}
+              {/* Chart container */}
+              <div className="absolute left-14 right-4 top-4 bottom-12">
+                <svg className="w-full h-full overflow-visible">
+                  <defs>
+                    {/* Gradient for area fill */}
+                    <linearGradient id="weeklyGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                      <stop offset="0%" stopColor="#4f46e5" stopOpacity="0.2" />
+                      <stop offset="100%" stopColor="#4f46e5" stopOpacity="0" />
+                    </linearGradient>
+                  </defs>
+                  
+                  {/* Area under the line */}
                   <path
-                    d={weeklyHours.map((hours, i) => {
+                    d={`M ${weeklyHours.map((hours, i) => {
                       const x = (i / (weeklyHours.length - 1)) * 100;
                       const y = 100 - ((hours / maxHours) * 100);
-                      return `${i === 0 ? 'M' : 'L'} ${x}% ${y}%`;
-                    }).join(' ')}
+                      return `${x}% ${y}%`;
+                    }).join(' L ')} L 100% 100% L 0% 100% Z`}
+                    fill="url(#weeklyGradient)"
+                    className="transition-all duration-1000"
+                  />
+                  
+                  {/* Connecting line */}
+                  <path
+                    d={`M ${weeklyHours.map((hours, i) => {
+                      const x = (i / (weeklyHours.length - 1)) * 100;
+                      const y = 100 - ((hours / maxHours) * 100);
+                      return `${x}% ${y}%`;
+                    }).join(' L ')}`}
                     fill="none"
                     stroke="#4f46e5"
                     strokeWidth="3"
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    strokeDasharray="1000"
-                    strokeDashoffset="1000"
                     className="transition-all duration-1000"
-                    style={{ animation: "dash 2s ease-in-out forwards" }}
-                  />
-                  
-                  {/* Area under the line with gradient */}
-                  <linearGradient id="weeklyGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" stopColor="#4f46e5" stopOpacity="0.2" />
-                    <stop offset="100%" stopColor="#4f46e5" stopOpacity="0" />
-                  </linearGradient>
-                  
-                  <path
-                    d={`${weeklyHours.map((hours, i) => {
-                      const x = (i / (weeklyHours.length - 1)) * 100;
-                      const y = 100 - ((hours / maxHours) * 100);
-                      return `${i === 0 ? 'M' : 'L'} ${x}% ${y}%`;
-                    }).join(' ')} L 100% 100% L 0% 100% Z`}
-                    fill="url(#weeklyGradient)"
-                    className="transition-all duration-500"
+                    style={{
+                      strokeDasharray: "1000",
+                      strokeDashoffset: "1000",
+                      animation: "dash 2s ease-in-out forwards"
+                    }}
                   />
                   
                   {/* Data points */}
@@ -141,35 +143,36 @@ export function TimeAnalytics({ timeRange }: TimeAnalyticsProps) {
                     const x = (index / (weeklyHours.length - 1)) * 100;
                     const y = 100 - ((hours / maxHours) * 100);
                     return (
-                      <g key={index} className="transition-all duration-500">
+                      <g key={index}>
                         <circle
                           cx={`${x}%`}
                           cy={`${y}%`}
-                          r="4"
+                          r="6"
                           fill="#4f46e5"
                           stroke="white"
-                          strokeWidth="2"
-                          className="group relative hover:r-6 transition-all cursor-pointer"
+                          strokeWidth="3"
+                          className="cursor-pointer transition-all duration-300 hover:r-8"
                         />
                         
-                        {/* Tooltips */}
-                        <g className="opacity-0 hover:opacity-100 transition-opacity">
+                        {/* Tooltip on hover */}
+                        <g className="opacity-0 hover:opacity-100 transition-opacity pointer-events-none">
                           <rect
                             x={`${x}%`}
-                            y={`${y - 8}%`}
-                            width="40"
-                            height="20"
+                            y={`${y}%`}
+                            width="50"
+                            height="24"
                             rx="4"
-                            transform="translate(-20, -20)"
+                            transform="translate(-25, -30)"
                             fill="#1f2937"
                           />
                           <text
                             x={`${x}%`}
-                            y={`${y - 8}%`}
+                            y={`${y}%`}
                             textAnchor="middle"
-                            transform="translate(0, -12)"
-                            fontSize="10"
+                            transform="translate(0, -14)"
+                            fontSize="12"
                             fill="white"
+                            fontWeight="500"
                           >
                             {hours}h
                           </text>
@@ -178,13 +181,15 @@ export function TimeAnalytics({ timeRange }: TimeAnalyticsProps) {
                     );
                   })}
                 </svg>
-                
-                {/* X-axis labels */}
-                <div className="absolute bottom-0 left-0 right-0 flex justify-between px-0">
-                  {weeks.map((week, index) => (
-                    <div key={index} className="text-xs font-medium text-gray-700">{week}</div>
-                  ))}
-                </div>
+              </div>
+              
+              {/* X-axis labels */}
+              <div className="absolute bottom-2 left-14 right-4 flex justify-between">
+                {weeks.map((week, index) => (
+                  <div key={index} className="text-xs font-medium text-gray-700 text-center">
+                    {week}
+                  </div>
+                ))}
               </div>
             </div>
           </CardContent>

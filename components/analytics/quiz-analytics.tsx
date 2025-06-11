@@ -4,6 +4,16 @@ import { motion } from "framer-motion"
 import { Card, CardContent } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { useState, useEffect } from "react"
+
+// Add CSS for chart animations
+const chartStyles = `
+  @keyframes dash {
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+`;
 
 interface QuizAnalyticsProps {
   timeRange: string;
@@ -22,9 +32,48 @@ interface ScoreDistribution {
   color: string;
 }
 
+interface QuizStats {
+  totalQuizzes: number;
+  totalAttempts: number;
+  completionRate: number;
+  chartData: number[];
+  growth: {
+    daily: number;
+    weekly: number;
+    monthly: number;
+  };
+  timeStats: {
+    dailyAttempts: number;
+    weeklyAttempts: number;
+    monthlyAttempts: number;
+  };
+}
+
 export function QuizAnalytics({ timeRange }: QuizAnalyticsProps) {
   const isMobile = useIsMobile()
+  const [stats, setStats] = useState<QuizStats | null>(null)
+  const [loading, setLoading] = useState(true)
+  useEffect(() => {
+    async function fetchQuizStats() {
+      try {
+        const response = await fetch('/api/quiz/stats')
+        if (response.ok) {
+          const data = await response.json()
+          if (data.success) {
+            setStats(data.stats)
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching quiz stats:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
 
+    fetchQuizStats()
+  }, [timeRange])
+
+  // Mock data for demonstration (replace with real data when available)
   const quizzes: QuizData[] = [
     { name: "Machine Learning Fundamentals", score: 92, questions: 15, date: "Apr 5, 2025" },
     { name: "Data Structures & Algorithms", score: 85, questions: 20, date: "Apr 2, 2025" },
@@ -33,8 +82,10 @@ export function QuizAnalytics({ timeRange }: QuizAnalyticsProps) {
     { name: "Python Programming", score: 88, questions: 18, date: "Mar 20, 2025" },
   ]
 
-  const averageScore = quizzes.reduce((sum, quiz) => sum + quiz.score, 0) / quizzes.length
+  const averageScore = stats?.completionRate || quizzes.reduce((sum, quiz) => sum + quiz.score, 0) / quizzes.length
   const totalQuestions = quizzes.reduce((sum, quiz) => sum + quiz.questions, 0)
+  const totalAttempts = stats?.totalAttempts || quizzes.length
+  const highestScore = Math.max(...quizzes.map(q => q.score))
 
   const scoreDistribution: ScoreDistribution[] = [
     { range: "90-100%", count: 2, color: "bg-green-500" },
@@ -48,38 +99,43 @@ export function QuizAnalytics({ timeRange }: QuizAnalyticsProps) {
     <div className="space-y-8">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="border-gray-200 bg-white">
-          <CardContent className="p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Quiz Summary</h3>
+          <CardContent className="p-6">            <h3 className="text-lg font-medium text-gray-900 mb-4">Quiz Summary</h3>
             <div className="space-y-6">
               <div>
                 <div className="text-sm font-medium text-gray-500 mb-1">Average Score</div>
-                <div className="text-3xl font-bold text-indigo-600">{averageScore.toFixed(1)}%</div>
+                <div className="text-3xl font-bold text-indigo-600">
+                  {loading ? '--' : `${averageScore.toFixed(1)}%`}
+                </div>
               </div>
 
               <div>
                 <div className="text-sm font-medium text-gray-500 mb-1">Quizzes Taken</div>
-                <div className="text-3xl font-bold text-indigo-600">{quizzes.length}</div>
+                <div className="text-3xl font-bold text-indigo-600">
+                  {loading ? '--' : (stats?.totalAttempts || quizzes.length)}
+                </div>
               </div>
 
               <div>
                 <div className="text-sm font-medium text-gray-500 mb-1">Questions Answered</div>
-                <div className="text-3xl font-bold text-indigo-600">{totalQuestions}</div>
+                <div className="text-3xl font-bold text-indigo-600">
+                  {loading ? '--' : totalQuestions}
+                </div>
               </div>
 
               <div>
                 <div className="text-sm font-medium text-gray-500 mb-1">Highest Score</div>
-                <div className="text-3xl font-bold text-indigo-600">95%</div>
+                <div className="text-3xl font-bold text-indigo-600">
+                  {loading ? '--' : `${highestScore}%`}
+                </div>
               </div>
             </div>
           </CardContent>
-        </Card>
-
-        <Card className="border-gray-200 col-span-1 md:col-span-2 bg-white">
+        </Card>        <Card className="border-gray-200 col-span-1 md:col-span-2 bg-white">
           <CardContent className="p-6">
             <h3 className="text-lg font-medium text-gray-900 mb-4">Score Distribution</h3>
             <div className="h-64 relative bg-gray-50 rounded-lg p-4">
               {/* Y-axis labels */}
-              <div className="absolute left-2 top-0 bottom-8 w-6 flex flex-col justify-between text-xs text-gray-500">
+              <div className="absolute left-2 top-4 bottom-12 w-8 flex flex-col justify-between text-xs text-gray-500">
                 <div>4</div>
                 <div>3</div>
                 <div>2</div>
@@ -88,47 +144,52 @@ export function QuizAnalytics({ timeRange }: QuizAnalyticsProps) {
               </div>
               
               {/* Grid lines */}
-              <div className="absolute left-10 right-4 top-0 bottom-8 flex flex-col justify-between">
+              <div className="absolute left-12 right-4 top-4 bottom-12 flex flex-col justify-between">
                 {[0, 1, 2, 3, 4].map((line) => (
                   <div key={line} className="border-t border-gray-200 w-full" />
                 ))}
               </div>
               
-              {/* Line chart container */}
-              <div className="ml-10 mr-4 h-full flex flex-col pt-0 pb-8 relative">
-                {/* Line points and path */}
-                <svg className="w-full h-full absolute top-0 left-0 overflow-visible">
-                  {/* Line path with animation */}
+              {/* Chart container */}
+              <div className="absolute left-12 right-4 top-4 bottom-12">
+                <svg className="w-full h-full overflow-visible">
+                  <defs>
+                    {/* Gradient for area fill */}
+                    <linearGradient id="scoreGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                      <stop offset="0%" stopColor="#4f46e5" stopOpacity="0.2" />
+                      <stop offset="100%" stopColor="#4f46e5" stopOpacity="0" />
+                    </linearGradient>
+                  </defs>
+                  
+                  {/* Area under the line */}
                   <path
-                    d={scoreDistribution.map((item, i) => {
+                    d={`M ${scoreDistribution.map((item, i) => {
                       const x = (i / (scoreDistribution.length - 1)) * 100;
                       const y = 100 - ((item.count / 4) * 100);
-                      return `${i === 0 ? 'M' : 'L'} ${x}% ${y}%`;
-                    }).join(' ')}
+                      return `${x}% ${y}%`;
+                    }).join(' L ')} L 100% 100% L 0% 100% Z`}
+                    fill="url(#scoreGradient)"
+                    className="transition-all duration-1000"
+                  />
+                  
+                  {/* Connecting line */}
+                  <path
+                    d={`M ${scoreDistribution.map((item, i) => {
+                      const x = (i / (scoreDistribution.length - 1)) * 100;
+                      const y = 100 - ((item.count / 4) * 100);
+                      return `${x}% ${y}%`;
+                    }).join(' L ')}`}
                     fill="none"
                     stroke="#4f46e5"
                     strokeWidth="3"
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    strokeDasharray="1000"
-                    strokeDashoffset="1000"
-                    style={{ animation: "dash 2s ease-in-out forwards" }}
-                  />
-                  
-                  {/* Area under the line with gradient */}
-                  <linearGradient id="scoreGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" stopColor="#4f46e5" stopOpacity="0.2" />
-                    <stop offset="100%" stopColor="#4f46e5" stopOpacity="0" />
-                  </linearGradient>
-                  
-                  <path
-                    d={`${scoreDistribution.map((item, i) => {
-                      const x = (i / (scoreDistribution.length - 1)) * 100;
-                      const y = 100 - ((item.count / 4) * 100);
-                      return `${i === 0 ? 'M' : 'L'} ${x}% ${y}%`;
-                    }).join(' ')} L 100% 100% L 0% 100% Z`}
-                    fill="url(#scoreGradient)"
-                    className="transition-all duration-500"
+                    className="transition-all duration-1000"
+                    style={{
+                      strokeDasharray: "1000",
+                      strokeDashoffset: "1000",
+                      animation: "dash 2s ease-in-out forwards"
+                    }}
                   />
                   
                   {/* Data points */}
@@ -136,35 +197,36 @@ export function QuizAnalytics({ timeRange }: QuizAnalyticsProps) {
                     const x = (index / (scoreDistribution.length - 1)) * 100;
                     const y = 100 - ((item.count / 4) * 100);
                     return (
-                      <g key={index} className="transition-all duration-500">
+                      <g key={index}>
                         <circle
                           cx={`${x}%`}
                           cy={`${y}%`}
-                          r="4"
-                          fill={item.color.replace('bg-', '#').replace('green-500', '22c55e').replace('lime-500', '84cc16').replace('yellow-500', 'eab308').replace('orange-500', 'f97316').replace('red-500', 'ef4444')}
+                          r="6"
+                          fill="#4f46e5"
                           stroke="white"
-                          strokeWidth="2"
-                          className="cursor-pointer"
+                          strokeWidth="3"
+                          className="cursor-pointer transition-all duration-300 hover:r-8"
                         />
                         
-                        {/* Tooltips */}
-                        <g className="opacity-0 hover:opacity-100 transition-opacity">
+                        {/* Tooltip on hover */}
+                        <g className="opacity-0 hover:opacity-100 transition-opacity pointer-events-none">
                           <rect
                             x={`${x}%`}
-                            y={`${y - 8}%`}
-                            width="60"
-                            height="20"
+                            y={`${y}%`}
+                            width="80"
+                            height="24"
                             rx="4"
-                            transform="translate(-30, -20)"
+                            transform="translate(-40, -30)"
                             fill="#1f2937"
                           />
                           <text
                             x={`${x}%`}
-                            y={`${y - 8}%`}
+                            y={`${y}%`}
                             textAnchor="middle"
-                            transform="translate(0, -12)"
-                            fontSize="10"
+                            transform="translate(0, -14)"
+                            fontSize="12"
                             fill="white"
+                            fontWeight="500"
                           >
                             {item.count} quizzes
                           </text>
@@ -173,13 +235,15 @@ export function QuizAnalytics({ timeRange }: QuizAnalyticsProps) {
                     );
                   })}
                 </svg>
-                
-                {/* X-axis labels */}
-                <div className="absolute bottom-0 left-0 right-0 flex justify-between px-0">
-                  {scoreDistribution.map((item, index) => (
-                    <div key={index} className="text-xs font-medium text-gray-700">{item.range}</div>
-                  ))}
-                </div>
+              </div>
+              
+              {/* X-axis labels */}
+              <div className="absolute bottom-2 left-12 right-4 flex justify-between">
+                {scoreDistribution.map((item, index) => (
+                  <div key={index} className="text-xs font-medium text-gray-700 text-center">
+                    {item.range}
+                  </div>
+                ))}
               </div>
             </div>
           </CardContent>
@@ -200,7 +264,7 @@ export function QuizAnalytics({ timeRange }: QuizAnalyticsProps) {
                 <CardContent className="p-4">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>
-                      <div className="font-medium text-indigo-600 font-bold">{quiz.name}</div>
+                      <div className="font-bold text-indigo-600">{quiz.name}</div>
                       <div className="text-sm text-gray-500">
                         {quiz.date} • {quiz.questions} questions
                       </div>
