@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Clock, FileText, Edit, CheckCircle, LogIn, User, NotebookPen, ArrowRight } from "lucide-react"
+import { Clock, FileText, Edit, CheckCircle, LogIn, User, NotebookPen, ArrowRight, Brain, Trophy } from "lucide-react"
 import { useAuth } from "@/lib/auth/AuthContext"
 import Link from "next/link"
 
@@ -51,6 +51,8 @@ export function RecentActivity() {
         return Edit
       case 'quiz_completed':
         return CheckCircle
+      case 'quiz_created':
+        return Brain
       case 'login':
         return LogIn
       case 'profile_updated':
@@ -70,6 +72,8 @@ export function RecentActivity() {
         return "bg-blue-100 text-blue-600"
       case 'quiz_completed':
         return "bg-green-100 text-green-600"
+      case 'quiz_created':
+        return "bg-purple-100 text-purple-600"
       case 'login':
         return "bg-gray-100 text-gray-600"
       case 'profile_updated':
@@ -185,6 +189,16 @@ export function RecentActivity() {
                     {activity.metadata?.wordsWritten && (
                       <div className="text-xs text-gray-500">
                         {activity.metadata.wordsWritten} words
+                      </div>
+                    )}
+                    {activity.metadata?.score && (
+                      <div className="text-xs text-gray-500">
+                        {activity.metadata.score}% score
+                      </div>
+                    )}
+                    {activity.metadata?.questionsCount && (
+                      <div className="text-xs text-gray-500">
+                        {activity.metadata.questionsCount} questions
                       </div>
                     )}
                   </div>
