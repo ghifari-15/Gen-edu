@@ -42,18 +42,41 @@ export function QuizCreator() {
       setFile(e.target.files[0])
     }
   }
-
-  const handleGenerate = (): void => {
-    if (!file) return // Don't proceed if no file is uploaded
+  const handleGenerate = async (): Promise<void> => {
+    if (!file) return
 
     setIsGenerating(true)
 
-    // Simulate API call to generate quiz
-    setTimeout(() => {
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('numQuestions', numQuestions)
+      formData.append('difficulty', difficulty)
+      formData.append('language', language)
+
+      const response = await fetch('/api/quiz/generate', {
+        method: 'POST',
+        body: formData,
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to generate quiz')
+      }
+
+      if (data.success && data.quiz) {
+        // Redirect to the generated quiz preview page
+        router.push(`/quiz/generated/${data.quiz.id}`)
+      } else {
+        throw new Error('Invalid response format')
+      }
+    } catch (error) {
+      console.error('Quiz generation error:', error)
+      alert(error instanceof Error ? error.message : 'Failed to generate quiz. Please try again.')
+    } finally {
       setIsGenerating(false)
-      // Redirect to the generated quiz preview page
-      router.push("/quiz/generated/1")
-    }, 2000)
+    }
   }
 
   return (

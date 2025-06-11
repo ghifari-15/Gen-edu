@@ -64,7 +64,7 @@ export interface IQuiz extends Document {
   metadata: {
     subject: string;
     grade?: string;
-    difficulty: 'beginner' | 'intermediate' | 'advanced';
+    difficulty: 'easy' | 'medium' | 'hard';
     estimatedTime: number; // in minutes
     tags: string[];
     category: string;
@@ -187,7 +187,6 @@ const QuizSchema = new Schema<IQuiz>(
       type: String,
       required: true,
       unique: true,
-      index: true,
     },
     title: {
       type: String,
@@ -253,7 +252,7 @@ const QuizSchema = new Schema<IQuiz>(
       },
       difficulty: {
         type: String,
-        enum: ['beginner', 'intermediate', 'advanced'],
+        enum: ['easy', 'medium', 'hard'],
         required: true,
       },
       estimatedTime: {
@@ -300,7 +299,6 @@ const QuizSchema = new Schema<IQuiz>(
 
 // Indexes
 QuizSchema.index({ userId: 1, createdAt: -1 });
-QuizSchema.index({ quizId: 1 });
 QuizSchema.index({ 'metadata.subject': 1 });
 QuizSchema.index({ 'metadata.tags': 1 });
 QuizSchema.index({ 'settings.isPublic': 1 });

@@ -4,10 +4,9 @@ export interface IActivity extends Document {
   _id: string;
   activityId: string;
   userId: string;
-  type: 'notebook_created' | 'notebook_updated' | 'notebook_deleted' | 'quiz_completed' | 'login' | 'profile_updated' | 'learning_session';
+  type: 'notebook_created' | 'notebook_updated' | 'notebook_deleted' | 'quiz_completed' | 'quiz_created' | 'login' | 'profile_updated' | 'learning_session';
   title: string;
-  description?: string;
-  metadata: {
+  description?: string;  metadata: {
     notebookId?: string;
     quizId?: string;
     sessionDuration?: number; // in minutes
@@ -16,6 +15,9 @@ export interface IActivity extends Document {
     score?: number;
     difficulty?: string;
     subject?: string;
+    questionsCount?: number;
+    questionsCorrect?: number;
+    source?: string;
     additionalData?: any;
   };
   timestamp: Date;
@@ -54,12 +56,12 @@ const ActivitySchema = new Schema<IActivity>(
     },
     type: {
       type: String,
-      required: true,
-      enum: [
+      required: true,      enum: [
         'notebook_created',
         'notebook_updated', 
         'notebook_deleted',
         'quiz_completed',
+        'quiz_created',
         'login',
         'profile_updated',
         'learning_session'
@@ -102,8 +104,17 @@ const ActivitySchema = new Schema<IActivity>(
       difficulty: {
         type: String,
         enum: ['beginner', 'intermediate', 'advanced'],
+      },      subject: {
+        type: String,
+      },      questionsCount: {
+        type: Number,
+        min: 0,
       },
-      subject: {
+      questionsCorrect: {
+        type: Number,
+        min: 0,
+      },
+      source: {
         type: String,
       },
       additionalData: {
