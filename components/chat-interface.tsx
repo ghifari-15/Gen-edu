@@ -3,10 +3,11 @@
 import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ArrowUp, Brain, Sparkles, RotateCcw, ChevronDown, ChevronUp } from "lucide-react"
+import { ArrowUp, Brain, Sparkles, RotateCcw, ChevronDown, ChevronUp, Expand } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useChat } from "@/hooks/use-chat"
 import { MarkdownRenderer } from "@/components/markdown-renderer"
+import { useRouter } from "next/navigation"
 
 // ThinkingBar component for showing reasoning process
 function ThinkingBar({ thinking, isThinking }: { thinking?: string; isThinking?: boolean }) {
@@ -64,12 +65,13 @@ function ThinkingBar({ thinking, isThinking }: { thinking?: string; isThinking?:
   )
 }
 
-export function ChatInterface() {
+export function ChatInterface({ isFullScreen = false }: { isFullScreen?: boolean }) {
   const { messages, isLoading, isStreaming, sendMessage, clearChat } = useChat()
   const [input, setInput] = useState<string>("")
   const [useReasoning, setUseReasoning] = useState<boolean>(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const chatContainerRef = useRef<HTMLDivElement>(null)
+  const router = useRouter()
 
   const scrollToBottom = (): void => {
     if (chatContainerRef.current) {
@@ -81,7 +83,6 @@ export function ChatInterface() {
   useEffect(() => {
     scrollToBottom()
   }, [messages])
-
   const handleSend = async (): Promise<void> => {
     if (input.trim() && !isLoading && !isStreaming) {
       const message = input.trim()
@@ -96,8 +97,9 @@ export function ChatInterface() {
       handleSend()
     }
   }
+
   return (
-    <div className="flex flex-col h-full max-h-[600px]">
+    <div className={`flex flex-col ${isFullScreen ? 'h-full' : 'h-full max-h-[600px]'}`}>
       {/* Header with mode indicator and controls */}
       <div className="p-4 border-b border-gray-200 bg-white flex-shrink-0">
         <div className="flex items-center justify-between">
@@ -142,6 +144,19 @@ export function ChatInterface() {
             >
               <RotateCcw className="h-4 w-4" />
             </Button>
+
+            {/* Expand button - only show on desktop and not in full screen */}
+            {!isFullScreen && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.push('/chat')}
+                className="hidden md:flex text-gray-600 hover:text-gray-800"
+                title="Expand to full screen"
+              >
+                <Expand className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         </div>
       </div>
