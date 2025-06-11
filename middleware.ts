@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 // Protected routes yang memerlukan authentication
 const protectedRoutes = [
+  '/',
   '/notebook',
   '/quiz',
   '/profile',
@@ -13,7 +14,6 @@ const protectedRoutes = [
 const publicRoutes = [
   '/login',
   '/register',
-  '/',
   '/api/auth'
 ];
 
@@ -52,15 +52,32 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Check if this is a public route
+  const isPublicRoute = publicRoutes.some(route => 
+    pathname === route || pathname.startsWith(route + '/')
+  );
+
   // Check if this is a protected route
   const isProtectedRoute = protectedRoutes.some(route => 
-    pathname.startsWith(route)
+    pathname === route || pathname.startsWith(route + '/')
   );
 
   // Check if this is an auth route (login/register)
   const isAuthRoute = authRoutes.some(route => 
-    pathname.startsWith(route)
+    pathname === route || pathname.startsWith(route + '/')
   );
+
+  // If accessing public route, always allow
+  if (isPublicRoute) {
+    // But if user is authenticated and trying to access auth routes, redirect to home
+    if (token && isAuthRoute) {
+      const payload = verifyTokenSimple(token);
+      if (payload) {
+        return NextResponse.redirect(new URL('/', request.url));
+      }
+    }
+    return NextResponse.next();
+  }
 
   // If no token and trying to access protected route
   if (isProtectedRoute && !token) {
@@ -81,13 +98,7 @@ export async function middleware(request: NextRequest) {
         return response;
       }
     } else {
-      // Token is valid
-      // If user is authenticated and trying to access auth routes, redirect to dashboard
-      if (isAuthRoute) {
-        return NextResponse.redirect(new URL('/notebook', request.url));
-      }
-
-      // Add user info to headers for API routes
+      // Token is valid, add user info to headers
       const response = NextResponse.next();
       response.headers.set('x-user-id', payload.userId || '');
       response.headers.set('x-user-email', payload.email || '');
@@ -97,7 +108,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Allow access to public routes
+  // Allow access to other routes
   return NextResponse.next();
 }
 
