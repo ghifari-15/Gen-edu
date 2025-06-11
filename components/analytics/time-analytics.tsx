@@ -191,32 +191,6 @@ export function TimeAnalytics({ timeRange }: TimeAnalyticsProps) {
         </Card>
       </div>
 
-      <div>
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Time by Subject</h3>
-        <div className="space-y-4">
-          {timeBySubject.map((subject, index) => (
-            <motion.div
-              key={subject.name}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: index * 0.05 }}
-            >
-              <Card className="border-gray-200 bg-white">
-                <CardContent className="p-4">
-                  <div className="flex justify-between items-center mb-2">
-                    <div className="font-medium">{subject.name}</div>
-                    <div className="text-sm font-medium text-gray-500">
-                      {subject.hours} hours ({Math.round((subject.hours / totalSubjectHours) * 100)}%)
-                    </div>
-                  </div>
-                  <Progress value={(subject.hours / totalSubjectHours) * 100} className={`h-2 ${subject.color}`} />
-                </CardContent>
-              </Card>
-            </motion.div>
-          ))}
-        </div>
-      </div>
-
       <div className="p-4 bg-indigo-50 rounded-lg border border-indigo-100">
         <div className="text-sm text-indigo-900">
           <span className="font-medium">Pro Tip:</span> Research shows that studying in 25-minute focused sessions with

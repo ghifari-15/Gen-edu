@@ -39,6 +39,7 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { useLearningSession } from "@/hooks/use-learning-session"
 import Link from "next/link"
 
 interface Cell {
@@ -99,10 +100,17 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
   const [sources, setSources] = useState<Array<{id: string, name: string, type: string, url?: string}>>([])
   const [wordCount, setWordCount] = useState(0)
   const [showShortcuts, setShowShortcuts] = useState(false)
-  
-  const isMobile = useIsMobile()
+    const isMobile = useIsMobile()
   const editorRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Learning session tracking
+  const learningSession = useLearningSession({
+    activityType: 'notebook_session',
+    resourceId: notebookId || notebookData?.id,
+    resourceTitle: title || notebookData?.title || 'Notebook',
+    minSessionDuration: 2, // Track sessions longer than 2 minutes
+  })
 
   // Fetch notebook data if only notebookId is provided
   useEffect(() => {
@@ -173,6 +181,7 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
     }
     editorRef.current?.focus()
   }, [])
+
   const handleContentChange = () => {
     if (editorRef.current) {
       const newContent = editorRef.current.innerHTML
@@ -182,6 +191,13 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
       const textContent = editorRef.current.textContent || ""
       const words = textContent.trim().split(/\s+/).filter(word => word.length > 0)
       setWordCount(words.length)
+
+      // Track learning activity
+      if (!learningSession.isActive) {
+        learningSession.startSession()
+      } else {
+        learningSession.updateActivity()
+      }
     }
   }
 

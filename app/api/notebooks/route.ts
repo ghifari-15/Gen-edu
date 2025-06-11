@@ -3,6 +3,7 @@ import { AuthUtils } from '@/lib/auth/utils';
 import dbConnect from '@/lib/database/mongodb';
 import Notebook from '@/lib/models/Notebook';
 import User from '@/lib/models/User';
+import { ActivityTracker } from '@/lib/utils/activity-tracker';
 
 export async function GET(request: NextRequest) {
   try {
@@ -140,11 +141,24 @@ export async function POST(request: NextRequest) {
         if (!user.statistics.lastActive) {
           user.statistics.lastActive = new Date();
         }
-      }
-      
-      user.statistics.notebooksCreated += 1;
+      }      user.statistics.notebooksCreated += 1;
       user.statistics.lastActive = new Date();
       await user.save();
+    }    // Track activity
+    try {
+      await ActivityTracker.trackActivity(payload.userId, 'notebook_created', {
+        title: `Created notebook: ${title}`,
+        description: description || 'New notebook created',
+        metadata: {
+          notebookId: notebookId,
+          cellsAdded: defaultCells.length,
+          difficulty: metadata.difficulty || 'beginner',
+          subject: metadata.subjects?.[0] || 'general',
+        }
+      });
+    } catch (activityError) {
+      console.error('Error tracking activity:', activityError);
+      // Don't fail the request if activity tracking fails
     }
 
     return NextResponse.json({

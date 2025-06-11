@@ -110,10 +110,9 @@ export default function SignupPage() {
       })
       
       const data = await response.json()
-      
-      if (data.success) {
-        // Registration successful, redirect to notebook
-        router.push("/notebook")
+        if (data.success) {
+        // Registration successful, redirect to onboarding
+        router.push("/onboarding")
       } else {
         setError(data.message || "Registration failed")
       }

@@ -7,9 +7,9 @@ export interface IUser extends Document {
   email: string;
   password: string;
   name: string;
-  role: 'student' | 'teacher' | 'admin';
-  avatar?: string;
+  role: 'student' | 'teacher' | 'admin';  avatar?: string;
   isEmailVerified: boolean;
+  onboardingCompleted: boolean;
   lastLogin?: Date;
   preferences: {
     theme: 'light' | 'dark';
@@ -79,8 +79,11 @@ const UserSchema = new Schema<IUser>(
     avatar: {
       type: String,
       default: null,
+    },    isEmailVerified: {
+      type: Boolean,
+      default: false,
     },
-    isEmailVerified: {
+    onboardingCompleted: {
       type: Boolean,
       default: false,
     },
@@ -177,9 +180,7 @@ const UserSchema = new Schema<IUser>(
   }
 );
 
-// Indexes for performance
-UserSchema.index({ email: 1 });
-UserSchema.index({ userId: 1 });
+// Indexes for performance (role only, as email and userId are unique)
 UserSchema.index({ role: 1 });
 
 // Pre-save middleware untuk hash password

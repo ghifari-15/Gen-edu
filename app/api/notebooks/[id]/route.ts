@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { AuthUtils } from '@/lib/auth/utils';
 import dbConnect from '@/lib/database/mongodb';
 import Notebook from '@/lib/models/Notebook';
+import { ActivityTracker } from '@/lib/utils/activity-tracker';
 
 export async function GET(
   request: NextRequest,
@@ -123,12 +124,32 @@ export async function PUT(
           notebook[key] = updateData[key];
         }
       }
-    });
-
-    notebook.lastSaved = new Date();
+    });    notebook.lastSaved = new Date();
     notebook.version += 1;
 
     await notebook.save();
+
+    // Track activity for notebook update
+    try {
+      const wordsWritten = notebook.cells.reduce((total: number, cell: any) => {
+        if (cell.content && typeof cell.content === 'string') {
+          return total + cell.content.split(/\s+/).filter((word: string) => word.length > 0).length;
+        }
+        return total;
+      }, 0);      await ActivityTracker.trackActivity(payload.userId, 'notebook_updated', {
+        title: `Updated notebook: ${notebook.title}`,
+        description: `Made changes to ${notebook.title}`,
+        metadata: {
+          notebookId: params.id,
+          cellsAdded: notebook.cells.length,
+          wordsWritten: wordsWritten,
+          sessionDuration: 5, // Approximate session duration in minutes
+        }
+      });
+    } catch (activityError) {
+      console.error('Error tracking activity:', activityError);
+      // Don't fail the request if activity tracking fails
+    }
 
     return NextResponse.json({
       success: true,
