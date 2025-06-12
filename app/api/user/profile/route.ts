@@ -19,12 +19,11 @@ export async function GET(request: NextRequest) {
     if (!payload) {
       return NextResponse.json(
         { success: false, message: 'Invalid token' },
-        { status: 401 }
-      );    }
+        { status: 401 }      );    }
 
     // Connect to database and get user
     await dbConnect();
-    const user = await User.findById(payload.userId);
+    const user = await User.findOne({ userId: payload.userId });
     
     if (!user) {
       return NextResponse.json(
@@ -122,13 +121,11 @@ export async function PUT(request: NextRequest) {
         { success: false, message: 'Invalid token' },
         { status: 401 }
       );
-    }
-
-    const updateData = await request.json();
+    }    const updateData = await request.json();
 
     // Connect to database and get user
     await dbConnect();
-    const user = await User.findById(payload.userId);
+    const user = await User.findOne({ userId: payload.userId });
     
     if (!user) {
       return NextResponse.json(

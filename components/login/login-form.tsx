@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { useAuth } from "@/lib/auth/AuthContext"
 
 export function LoginForm({ className, ...props }: React.ComponentPropsWithoutRef<"div">) {
   const [formData, setFormData] = useState({
@@ -20,6 +21,7 @@ export function LoginForm({ className, ...props }: React.ComponentPropsWithoutRe
   const [error, setError] = useState("")
   
   const router = useRouter()
+  const { login } = useAuth()
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -39,21 +41,13 @@ export function LoginForm({ className, ...props }: React.ComponentPropsWithoutRe
     setError("")
     
     try {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(formData)
-      })
-      
-      const data = await response.json()
-      
-      if (data.success) {
-        // Login successful, redirect to notebook
-        router.push("/notebook")
+      const result = await login(formData.email, formData.password)
+        if (result.success) {
+        // Login successful, redirect to main dashboard
+        router.push("/")
+        router.refresh() // Force refresh to update UI
       } else {
-        setError(data.message || "Login failed")
+        setError(result.message || "Login failed")
       }
     } catch (error) {
       console.error("Login error:", error)

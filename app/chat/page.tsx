@@ -16,9 +16,8 @@ export default function ChatPage() {
   const handleMinimize = () => {
     router.push("/")
   }
-
   return (
-    <div className="h-screen w-full bg-gray-50 flex flex-col">
+    <div className="h-screen w-full bg-gray-50 flex flex-col overflow-hidden">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center space-x-3">
@@ -44,8 +43,10 @@ export default function ChatPage() {
           <Minimize2 className="h-4 w-4 mr-2" />
           Minimize
         </Button>
-      </div>      {/* Chat Interface - Full Screen */}
-      <div className="flex-1 bg-white min-h-0">
+      </div>
+
+      {/* Chat Interface - Full Screen with proper height management */}
+      <div className="flex-1 bg-white overflow-hidden">
         <ChatInterface isFullScreen={true} />
       </div>
     </div>
