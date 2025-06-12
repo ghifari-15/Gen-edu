@@ -79,10 +79,10 @@ export function ChatInterface({ isFullScreen = false }: { isFullScreen?: boolean
       scrollContainer.scrollTop = scrollContainer.scrollHeight;
     }
   }
-
   useEffect(() => {
     scrollToBottom()
   }, [messages])
+
   const handleSend = async (): Promise<void> => {
     if (input.trim() && !isLoading && !isStreaming) {
       const message = input.trim()
@@ -99,7 +99,7 @@ export function ChatInterface({ isFullScreen = false }: { isFullScreen?: boolean
   }
 
   return (
-    <div className={`flex flex-col ${isFullScreen ? 'h-full' : 'h-full max-h-[600px]'}`}>
+    <div className={`flex flex-col ${isFullScreen ? 'h-full' : 'h-full max-h-[600px]'} overflow-hidden`}>
       {/* Header with mode indicator and controls */}
       <div className="p-4 border-b border-gray-200 bg-white flex-shrink-0">
         <div className="flex items-center justify-between">
@@ -159,10 +159,16 @@ export function ChatInterface({ isFullScreen = false }: { isFullScreen?: boolean
             )}
           </div>
         </div>
-      </div>
-
-      {/* Messages - Fixed height with scroll */}
-      <div className="flex-1 p-4 overflow-y-auto space-y-4 min-h-0" ref={chatContainerRef}>
+      </div>      {/* Messages - Scrollable area that takes remaining space */}
+      <div 
+        className="flex-1 p-4 overflow-y-auto space-y-4"
+        ref={chatContainerRef}
+        style={{ 
+          height: isFullScreen 
+            ? 'calc(100vh - 240px)' // Account for page header, chat header and input sections
+            : 'calc(600px - 180px)'
+        }}
+      >
         <AnimatePresence>
           {messages.map((message) => (
             <motion.div
@@ -250,11 +256,13 @@ export function ChatInterface({ isFullScreen = false }: { isFullScreen?: boolean
           ))}
           <div ref={messagesEndRef} />
         </AnimatePresence>
-      </div>      {/* Input - Fixed at bottom */}
+      </div>      {/* Input - Fixed at bottom, always visible */}
       <div className="p-3 border-t border-gray-100 bg-white flex-shrink-0">
         <div className="relative flex items-center">
           <Input
-            className="pr-10 border-gray-200 focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 rounded-full bg-gray-50"
+            className={`pr-10 border-gray-200 focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 rounded-full bg-gray-50 ${
+              isFullScreen ? 'h-12 text-base' : 'h-10'
+            }`}
             placeholder={`Message GenEdu Agent${useReasoning ? ' (Reasoning Mode)' : ''}...`}
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -262,7 +270,9 @@ export function ChatInterface({ isFullScreen = false }: { isFullScreen?: boolean
             disabled={isLoading || isStreaming}
           />
           <Button
-            className={`absolute right-1 text-white rounded-full p-2 h-8 w-8 flex items-center justify-center ${
+            className={`absolute right-1 text-white rounded-full p-2 flex items-center justify-center ${
+              isFullScreen ? 'h-10 w-10' : 'h-8 w-8'
+            } ${
               isLoading || isStreaming 
                 ? 'bg-gray-400 cursor-not-allowed' 
                 : useReasoning
@@ -272,7 +282,7 @@ export function ChatInterface({ isFullScreen = false }: { isFullScreen?: boolean
             onClick={handleSend}
             disabled={isLoading || isStreaming || !input.trim()}
           >
-            <ArrowUp className="h-4 w-4" />
+            <ArrowUp className={`${isFullScreen ? 'h-5 w-5' : 'h-4 w-4'}`} />
           </Button>
         </div>
         
@@ -281,7 +291,8 @@ export function ChatInterface({ isFullScreen = false }: { isFullScreen?: boolean
             <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-indigo-600 mr-2"></div>
             {useReasoning ? 'Reasoning through your question...' : 'Generating response...'}
           </div>
-        )}</div>
+        )}
+      </div>
     </div>
   )
 }

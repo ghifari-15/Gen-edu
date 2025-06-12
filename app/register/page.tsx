@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Eye, EyeOff, User, Mail, Lock, GraduationCap } from "lucide-react"
+import { useAuth } from "@/lib/auth/AuthContext"
 
 export default function SignupPage() {
   const [formData, setFormData] = useState({
@@ -25,6 +26,7 @@ export default function SignupPage() {
   const [passwordStrength, setPasswordStrength] = useState(0)
   
   const router = useRouter()
+  const { register } = useAuth()
 
   const calculatePasswordStrength = (password: string) => {
     let score = 0
@@ -86,7 +88,6 @@ export default function SignupPage() {
     
     return true
   }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
@@ -95,26 +96,19 @@ export default function SignupPage() {
     setIsLoading(true)
     setError("")
     
-    try {
-      const response = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          name: formData.name.trim(),
-          email: formData.email.trim().toLowerCase(),
-          password: formData.password,
-          role: formData.role
-        })
+    try {      const result = await register({
+        name: formData.name.trim(),
+        email: formData.email.trim().toLowerCase(),
+        password: formData.password,
+        role: formData.role as 'student' | 'teacher'
       })
       
-      const data = await response.json()
-        if (data.success) {
+      if (result.success) {
         // Registration successful, redirect to onboarding
         router.push("/onboarding")
+        router.refresh() // Force refresh to update UI state
       } else {
-        setError(data.message || "Registration failed")
+        setError(result.message || "Registration failed")
       }
     } catch (error) {
       console.error("Registration error:", error)

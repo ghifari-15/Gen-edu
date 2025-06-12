@@ -51,6 +51,7 @@ interface AuthContextType {
   logout: () => Promise<void>
   register: (data: RegisterData) => Promise<{ success: boolean; message?: string }>
   updateUser: (userData: Partial<User>) => void
+  refreshUser: () => Promise<void>
 }
 
 interface RegisterData {
@@ -97,8 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Auth check failed:', error)
       setUser(null)
-      setIsAuthenticated(false)
-    } finally {
+      setIsAuthenticated(false)    } finally {
       setIsLoading(false)
     }
   }
@@ -119,14 +119,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data.success) {
         setUser(data.user)
         setIsAuthenticated(true)
+        
+        // Force a re-check of auth status to ensure everything is in sync
+        setTimeout(() => {
+          checkAuth()
+        }, 100)
+        
         return { success: true }
       } else {
         return { success: false, message: data.message }
       }
     } catch (error) {
       console.error('Login failed:', error)
-      return { success: false, message: 'An unexpected error occurred' }
-    }
+      return { success: false, message: 'An unexpected error occurred' }    }
   }
 
   const register = async (registerData: RegisterData) => {
@@ -145,6 +150,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data.success) {
         setUser(data.user)
         setIsAuthenticated(true)
+        
+        // Force a re-check of auth status to ensure everything is in sync
+        setTimeout(() => {
+          checkAuth()
+        }, 100)
+        
         return { success: true }
       } else {
         return { success: false, message: data.message }
@@ -169,11 +180,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       router.push('/login')
     }
   }
-
   const updateUser = (userData: Partial<User>) => {
     if (user) {
       setUser({ ...user, ...userData })
     }
+  }
+
+  const refreshUser = async () => {
+    await checkAuth()
   }
 
   const value = {
@@ -183,7 +197,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     login,
     logout,
     register,
-    updateUser
+    updateUser,
+    refreshUser
   }
 
   return (
