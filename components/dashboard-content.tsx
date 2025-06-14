@@ -9,7 +9,7 @@ import { ChatInterface } from "@/components/chat-interface"
 import { RecentActivity } from "@/components/recent-activity"
 import { Card } from "@/components/ui/card"
 import { useIsMobile } from "@/hooks/use-mobile"
-import { KnowledgeBasePanel } from "@/components/knowledge-base-panel-new"
+import { KnowledgeBasePanel } from "@/components/knowledge-base-panel"
 
 export function DashboardContent() {
   const [isLoaded, setIsLoaded] = useState(false)

@@ -33,8 +33,7 @@ export class LLMContextProvider {
       maxSources?: number;
     } = {}
   ): Promise<string> {
-    try {
-      const {
+    try {      const {
         maxTokens = 4000,
         focusOnRecent = true,
         recentDays = 7,
@@ -45,25 +44,40 @@ export class LLMContextProvider {
       let knowledgeEntries: KnowledgeEntry[] = [];
 
       if (focusOnRecent) {
-        // Prioritize recent quizzes
-        const recentQuizzes = await KnowledgeBaseManager.getRecentQuizzes(userId, recentDays);
-        knowledgeEntries = recentQuizzes;
+        try {
+          // Prioritize recent quizzes
+          const recentQuizzes = await KnowledgeBaseManager.getRecentQuizzes(userId, recentDays);
+          knowledgeEntries = recentQuizzes || [];
+        } catch (error) {
+          console.error('Error fetching recent quizzes:', error);
+          knowledgeEntries = [];
+        }
         
         // If not enough recent content, add older content
         if (knowledgeEntries.length < 3) {
-          const olderContent = await KnowledgeBaseManager.getKnowledgeBaseForUser(userId, {
-            limit: maxSources - knowledgeEntries.length,
-            source: includeSource.length > 0 ? includeSource[0] : undefined
-          });
-          knowledgeEntries = [...knowledgeEntries, ...olderContent];
+          try {
+            const olderContent = await KnowledgeBaseManager.getKnowledgeBaseForUser(userId, {
+              limit: maxSources - knowledgeEntries.length,
+              source: includeSource.length > 0 ? includeSource[0] : undefined
+            });
+            knowledgeEntries = [...knowledgeEntries, ...(olderContent || [])];
+          } catch (error) {
+            console.error('Error fetching older content:', error);
+            // Continue with just recent content
+          }
         }
       } else {
         // Get all knowledge base
-        const filters: any = { limit: maxSources };
-        if (includeSource.length > 0) {
-          filters.source = includeSource[0];
+        try {
+          const filters: any = { limit: maxSources };
+          if (includeSource.length > 0) {
+            filters.source = includeSource[0];
+          }
+          knowledgeEntries = await KnowledgeBaseManager.getKnowledgeBaseForUser(userId, filters) || [];
+        } catch (error) {
+          console.error('Error fetching knowledge base:', error);
+          knowledgeEntries = [];
         }
-        knowledgeEntries = await KnowledgeBaseManager.getKnowledgeBaseForUser(userId, filters);
       }
 
       if (!knowledgeEntries || knowledgeEntries.length === 0) {

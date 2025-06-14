@@ -67,7 +67,7 @@ export function Navbar() {
                 <NavButton href="/analytics" active={pathname === "/analytics"}>
                   Analytics
                 </NavButton>
-                <NavButton href="/notebook" active={pathname.startsWith("/notebook")}>
+                <NavButton href="/notebook" active={pathname.startsWith("/notebook") && pathname !== "/notebook/create"}>
                   Notebook
                 </NavButton>
                 <NavButton href="/quiz" active={pathname.startsWith("/quiz") && pathname !== "/quiz/create"}>

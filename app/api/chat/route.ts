@@ -46,7 +46,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 })
     }
 
-    await dbConnect()
+    // Validate API key
+    if (!process.env.DEEPINFRA_API_KEY) {
+      console.error('DEEPINFRA_API_KEY not configured')
+      return NextResponse.json({ error: 'AI service not configured' }, { status: 500 })
+    }    await dbConnect()
 
     // Get or create chat thread
     let chatThread
@@ -66,7 +70,7 @@ export async function POST(request: NextRequest) {
         createdAt: new Date(),
         updatedAt: new Date()
       })
-    }    // Get user's knowledge base context if requested
+    }// Get user's knowledge base context if requested
     let context = '';
     let contextUsed = false;
     if (useContext) {
@@ -85,7 +89,9 @@ export async function POST(request: NextRequest) {
         }
       } catch (error) {
         console.error('Error getting context:', error);
-        // Continue without context if error occurs
+        // Continue without context if error occurs - don't fail the entire request
+        context = '';
+        contextUsed = false;
       }
     }
 
@@ -118,9 +124,7 @@ export async function POST(request: NextRequest) {
     // Replace the last user message with enhanced version for LLM processing
     if (conversationHistory.length > 0 && conversationHistory[conversationHistory.length - 1] instanceof HumanMessage) {
       conversationHistory[conversationHistory.length - 1] = new HumanMessage(enhancedMessage);
-    }
-
-    // Select LLM based on mode
+    }    // Select LLM based on mode
     const selectedLLM = useReasoning ? reasoningLLM : defaultLLM
 
     // Create system message based on mode and context availability
@@ -138,10 +142,17 @@ export async function POST(request: NextRequest) {
       ...conversationHistory
     ]
 
-    // Stream the response
-    const stream = await selectedLLM.stream(messages)
-
-    // Create readable stream for response
+    // Stream the response with better error handling
+    let stream
+    try {
+      stream = await selectedLLM.stream(messages)
+    } catch (error) {
+      console.error('LLM streaming error:', error)
+      return NextResponse.json(
+        { error: 'AI service temporarily unavailable. Please try again.' },
+        { status: 503 }
+      )
+    }    // Create readable stream for response
     const encoder = new TextEncoder()
     let aiResponse = ''
 
@@ -174,14 +185,29 @@ export async function POST(request: NextRequest) {
             }
           })
           chatThread.updatedAt = new Date()
-          await chatThread.save()
+          
+          // Try to save to database, but don't fail if it doesn't work
+          try {
+            await chatThread.save()
+          } catch (saveError) {
+            console.error('Error saving chat thread:', saveError)
+            // Continue anyway - user still gets the response
+          }
 
           // Send completion signal
           controller.enqueue(encoder.encode(`data: {"done": true, "threadId": "${chatThread.threadId}", "contextUsed": ${contextUsed}}\n\n`))
           controller.close()
         } catch (error) {
           console.error('Streaming error:', error)
-          controller.error(error)
+          // Send error message to client
+          const errorData = JSON.stringify({ 
+            content: "I apologize, but I encountered an error while processing your request. Please try again.",
+            error: true,
+            threadId: chatThread.threadId
+          })
+          controller.enqueue(encoder.encode(`data: ${errorData}\n\n`))
+          controller.enqueue(encoder.encode(`data: {"done": true, "error": true}\n\n`))
+          controller.close()
         }
       }
     })
@@ -193,11 +219,33 @@ export async function POST(request: NextRequest) {
         'Connection': 'keep-alive',
       },
     })
-
   } catch (error) {
     console.error('Chat API error:', error)
+    
+    // More specific error messages
+    if (error instanceof Error) {
+      if (error.message.includes('ENOTFOUND') || error.message.includes('ECONNREFUSED')) {
+        return NextResponse.json(
+          { error: 'AI service is currently unavailable. Please try again later.' },
+          { status: 503 }
+        )
+      }
+      if (error.message.includes('API key')) {
+        return NextResponse.json(
+          { error: 'AI service configuration error. Please contact support.' },
+          { status: 500 }
+        )
+      }
+      if (error.message.includes('rate limit') || error.message.includes('quota')) {
+        return NextResponse.json(
+          { error: 'AI service is busy. Please try again in a moment.' },
+          { status: 429 }
+        )
+      }
+    }
+    
     return NextResponse.json(
-      { error: 'Failed to process chat message' },
+      { error: 'An unexpected error occurred. Please try again.' },
       { status: 500 }
     )
   }

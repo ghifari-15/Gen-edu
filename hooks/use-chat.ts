@@ -86,8 +86,7 @@ export function useChat(): UseChatReturn {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-        },
+          'Content-Type': 'application/json',        },
         body: JSON.stringify({
           message,
           threadId,
@@ -98,7 +97,25 @@ export function useChat(): UseChatReturn {
       })
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        let errorMessage = 'Sorry, I encountered an error. Please try again.'
+        
+        try {
+          const errorData = await response.json()
+          if (errorData.error) {
+            errorMessage = errorData.error
+          }
+        } catch {
+          // If we can't parse the error response, use the status-based message
+          if (response.status === 401) {
+            errorMessage = 'Authentication error. Please log in again.'
+          } else if (response.status === 429) {
+            errorMessage = 'AI service is busy. Please try again in a moment.'
+          } else if (response.status === 503) {
+            errorMessage = 'AI service is temporarily unavailable. Please try again later.'
+          }
+        }
+        
+        throw new Error(errorMessage)
       }
 
       const reader = response.body?.getReader()
@@ -213,12 +230,17 @@ export function useChat(): UseChatReturn {
             }
           }
         }
-      }
-    } catch (error: any) {
+      }    } catch (error: any) {
       console.error('Chat error:', error)
       
       if (error.name === 'AbortError') {
         return // Request was cancelled
+      }
+
+      // Get error message from the error object
+      let errorMessage = 'Sorry, I encountered an error. Please try again.'
+      if (error.message && typeof error.message === 'string') {
+        errorMessage = error.message
       }
 
       // Show error message
@@ -226,7 +248,7 @@ export function useChat(): UseChatReturn {
         msg.id === aiMessageId 
           ? { 
               ...msg, 
-              text: 'Sorry, I encountered an error. Please try again.',
+              text: errorMessage,
               isStreaming: false 
             }
           : msg
