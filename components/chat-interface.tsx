@@ -3,15 +3,33 @@
 import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ArrowUp, Brain, Sparkles, RotateCcw, ChevronDown, ChevronUp, Expand } from "lucide-react"
+import { ArrowUp, Brain, Sparkles, RotateCcw, ChevronDown, ChevronUp, Expand, Database, Target } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useChat } from "@/hooks/use-chat"
 import { MarkdownRenderer } from "@/components/markdown-renderer"
 import { useRouter } from "next/navigation"
 
+// Context summary interface
+interface ContextSummary {
+  totalEntries: number
+  bySource: Record<string, number>
+  bySubject: Record<string, number>
+  averageScore: number
+}
+
+// Recent quiz interface
+interface RecentQuiz {
+  _id: string
+  title: string
+  metadata: {
+    score?: number
+    difficulty?: string
+  }
+}
+
 // ThinkingBar component for showing reasoning process
 function ThinkingBar({ thinking, isThinking }: { thinking?: string; isThinking?: boolean }) {
-  const [isExpanded, setIsExpanded] = useState(false) // Changed to false by default
+  const [isExpanded, setIsExpanded] = useState(false)
 
   if (!thinking && !isThinking) return null
 
@@ -47,7 +65,8 @@ function ThinkingBar({ thinking, isThinking }: { thinking?: string; isThinking?:
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden"
-          >            <div className="px-3 pb-3 text-sm text-purple-800 bg-purple-50 rounded-b-lg border-t border-purple-200">
+          >
+            <div className="px-3 pb-3 text-sm text-purple-800 bg-purple-50 rounded-b-lg border-t border-purple-200">
               <div className="max-h-48 overflow-y-auto">
                 <MarkdownRenderer 
                   content={thinking || "Thinking..."} 
@@ -66,12 +85,50 @@ function ThinkingBar({ thinking, isThinking }: { thinking?: string; isThinking?:
 }
 
 export function ChatInterface({ isFullScreen = false }: { isFullScreen?: boolean }) {
-  const { messages, isLoading, isStreaming, sendMessage, clearChat } = useChat()
-  const [input, setInput] = useState<string>("")
-  const [useReasoning, setUseReasoning] = useState<boolean>(false)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [input, setInput] = useState("")
+  const [useReasoning, setUseReasoning] = useState(false)
+  const [useContext, setUseContext] = useState(false)
+  const [showContextInfo, setShowContextInfo] = useState(false)
+  const [contextSummary, setContextSummary] = useState<ContextSummary | null>(null)
+  const [recentQuizzes, setRecentQuizzes] = useState<RecentQuiz[]>([])
   const chatContainerRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
+
+  const { messages, isLoading, isStreaming, sendMessage, clearChat } = useChat()
+
+  // Fetch recent quizzes on component mount
+  useEffect(() => {
+    fetchRecentQuizzes()
+  }, [])
+
+  const fetchRecentQuizzes = async () => {
+    try {
+      const response = await fetch('/api/knowledge-base/recent?days=7&limit=5')
+      if (response.ok) {
+        const data = await response.json()
+        setRecentQuizzes(data.data || [])
+      }
+    } catch (error) {
+      console.error('Error fetching recent quizzes:', error)
+    }
+  }
+
+  // Fetch context summary on component mount
+  useEffect(() => {
+    fetchContextSummary()
+  }, [])
+
+  const fetchContextSummary = async () => {
+    try {
+      const response = await fetch('/api/knowledge-base/summary')
+      if (response.ok) {
+        const data = await response.json()
+        setContextSummary(data)
+      }
+    } catch (error) {
+      console.error('Error fetching context summary:', error)
+    }
+  }
 
   const scrollToBottom = (): void => {
     if (chatContainerRef.current) {
@@ -79,207 +136,294 @@ export function ChatInterface({ isFullScreen = false }: { isFullScreen?: boolean
       scrollContainer.scrollTop = scrollContainer.scrollHeight;
     }
   }
+
   useEffect(() => {
     scrollToBottom()
   }, [messages])
 
-  const handleSend = async (): Promise<void> => {
-    if (input.trim() && !isLoading && !isStreaming) {
-      const message = input.trim()
+  const onSend = () => {
+    if (input.trim()) {
+      sendMessage(input)
       setInput("")
-      await sendMessage(message, useReasoning)
     }
   }
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      handleSend()
+      onSend()
     }
   }
 
   return (
-    <div className={`flex flex-col ${isFullScreen ? 'h-full' : 'h-full max-h-[600px]'} overflow-hidden`}>
-      {/* Header with mode indicator and controls */}
-      <div className="p-4 border-b border-gray-200 bg-white flex-shrink-0">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="flex items-center space-x-2">
-              <div className={`p-2 rounded-lg ${useReasoning ? 'bg-purple-100' : 'bg-indigo-100'}`}>
-                {useReasoning ? (
-                  <Brain className={`h-5 w-5 ${useReasoning ? 'text-purple-600' : 'text-indigo-600'}`} />
-                ) : (
-                  <Sparkles className={`h-5 w-5 ${useReasoning ? 'text-purple-600' : 'text-indigo-600'}`} />
-                )}
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-900">GenEdu Agent</h3>
-                <p className="text-xs text-gray-500">
-                  {useReasoning ? 'DeepSeek R1 0528' : 'Claude 3.7 Sonnet'}
-                </p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setUseReasoning(!useReasoning)}
-              className={`${
-                useReasoning 
-                  ? 'bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100' 
-                  : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
-              }`}
-            >
-              <Brain className="h-4 w-4 mr-1" />
-              {useReasoning ? 'Reasoning' : 'Default'}
-            </Button>
-            
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={clearChat}
-              className="text-gray-600 hover:text-gray-800"
-            >
-              <RotateCcw className="h-4 w-4" />
-            </Button>
-
-            {/* Expand button - only show on desktop and not in full screen */}
-            {!isFullScreen && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => router.push('/chat')}
-                className="hidden md:flex text-gray-600 hover:text-gray-800"
-                title="Expand to full screen"
-              >
-                <Expand className="h-4 w-4" />
-              </Button>
-            )}
+    <div className={`flex flex-col h-full ${isFullScreen ? 'min-h-screen' : ''}`}>
+      {/* Header */}
+      <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-800 px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <div className="h-2 w-2 bg-green-400 rounded-full animate-pulse"></div>
+          <div className="text-white">
+            <h3 className="font-semibold text-lg">AI Learning Assistant</h3>
+            <p className="text-sm text-white/80">Available 24/7</p>
           </div>
         </div>
-      </div>      {/* Messages - Scrollable area that takes remaining space */}
+        
+        <div className="flex items-center space-x-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setUseReasoning(!useReasoning)}
+            className={`text-xs ${
+              useReasoning 
+                ? 'bg-purple-100 text-purple-800 hover:bg-purple-200' 
+                : 'text-white/80 hover:text-white hover:bg-white/10'
+            }`}
+            title={useReasoning ? 'Reasoning mode enabled' : 'Reasoning mode disabled'}
+          >
+            <Brain className="h-3 w-3 mr-1" />
+            {useReasoning ? 'Reasoning' : 'Default'}
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setUseContext(!useContext)}
+            className={`text-xs ${
+              useContext 
+                ? 'bg-blue-100 text-blue-800 hover:bg-blue-200' 
+                : 'text-white/80 hover:text-white hover:bg-white/10'
+            }`}
+            title={useContext ? 'Quiz context enabled' : 'Quiz context disabled'}
+          >
+            <Database className="h-3 w-3 mr-1" />
+            {useContext ? 'Context' : 'No Context'}
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearChat}
+            className="text-white/80 hover:text-white hover:bg-white/10"
+            title="Clear conversation"
+          >
+            <RotateCcw className="h-3 w-3" />
+          </Button>
+
+          {!isFullScreen && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push('/chat')}
+              className="text-white/80 hover:text-white hover:bg-white/10"
+              title="Expand to full screen"
+            >
+              <Expand className="h-3 w-3" />
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Context Info Panel */}
+      <AnimatePresence>
+        {showContextInfo && contextSummary && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="px-4 py-3 bg-blue-50 border-b border-blue-200"
+          >
+            <div className="text-sm text-blue-800">
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-medium">Learning Context Available</span>
+                <span className="text-xs text-blue-600">Avg Score: {contextSummary.averageScore}%</span>
+              </div>
+              <div className="grid grid-cols-2 gap-4 text-xs">
+                <div>
+                  <span className="font-medium">Sources:</span>
+                  <div className="mt-1">
+                    {Object.entries(contextSummary.bySource).map(([source, count]) => (
+                      <div key={source} className="flex justify-between">
+                        <span className="capitalize">{source}:</span>
+                        <span>{count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <span className="font-medium">Subjects:</span>
+                  <div className="mt-1">
+                    {Object.entries(contextSummary.bySubject).slice(0, 3).map(([subject, count]) => (
+                      <div key={subject} className="flex justify-between">
+                        <span className="capitalize">{subject}:</span>
+                        <span>{count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              
+              {recentQuizzes.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-blue-200">
+                  <span className="font-medium text-blue-800">Recent Quizzes:</span>
+                  <div className="mt-2 space-y-1">
+                    {recentQuizzes.slice(0, 3).map((quiz) => (
+                      <div key={quiz._id} className="flex justify-between items-center text-xs">
+                        <span className="truncate flex-1">{quiz.title}</span>
+                        {quiz.metadata.score && (
+                          <span className={`ml-2 font-medium ${
+                            quiz.metadata.score >= 80 ? 'text-green-600' : 
+                            quiz.metadata.score >= 60 ? 'text-yellow-600' : 'text-red-600'
+                          }`}>
+                            {quiz.metadata.score}%
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Messages */}
       <div 
-        className="flex-1 p-4 overflow-y-auto space-y-4"
+        className="flex-1 p-4 overflow-y-auto space-y-4 bg-gray-50"
         ref={chatContainerRef}
         style={{ 
           height: isFullScreen 
-            ? 'calc(100vh - 240px)' // Account for page header, chat header and input sections
-            : 'calc(600px - 180px)'
+            ? 'calc(100vh - 200px)' 
+            : 'calc(100% - 120px)'
         }}
       >
-        <AnimatePresence>
-          {messages.map((message) => (
-            <motion.div
-              key={message.id}
-              className={`flex ${message.sender === "user" ? "justify-end" : "justify-start"}`}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              <div className={`flex items-start max-w-[80%] ${message.sender === "user" ? "flex-row-reverse" : ""}`}>
-                {message.sender === "ai" && (
-                  <div className="flex-shrink-0 mr-2">
-                    <div className={`h-8 w-8 rounded-full flex items-center justify-center text-white text-xs ${
-                      message.model === 'deepseek-reasoning' 
-                        ? 'bg-gradient-to-r from-purple-600 to-purple-800' 
-                        : 'bg-gradient-to-r from-indigo-600 to-indigo-800'
-                    }`}>
-                      {message.model === 'deepseek-reasoning' ? (
-                        <Brain className="h-4 w-4" />
-                      ) : (
-                        <Sparkles className="h-4 w-4" />
-                      )}
-                    </div>
-                  </div>
-                )}                <div className="flex flex-col">
-                  {/* Thinking Bar - appears first for AI messages with reasoning */}
-                  {message.sender === "ai" && message.model === 'deepseek-reasoning' && (message.thinking || message.isThinking) && (
-                    <ThinkingBar 
-                      thinking={message.thinking} 
-                      isThinking={message.isThinking}
-                    />
-                  )}
-                    {/* Main message content - appears below thinking bar */}
-                  {message.text && (
-                    <div
-                      className={`p-3 rounded-2xl ${message.sender === "ai" && message.model === 'deepseek-reasoning' && (message.thinking || message.isThinking) ? 'mt-2' : ''} ${
-                        message.sender === "user" 
-                          ? "bg-indigo-600 text-white" 
-                          : "bg-gray-100 text-gray-800"
-                      }`}
-                    >
-                      {message.sender === "user" ? (
-                        <div className="whitespace-pre-wrap text-white">
-                          {message.text}
-                          {message.isStreaming && !message.isThinking && (
-                            <span className="inline-block w-2 h-4 bg-white ml-1 animate-pulse" />
-                          )}
-                        </div>
-                      ) : (
-                        <div className="prose prose-sm max-w-none">
-                          <MarkdownRenderer 
-                            content={message.text} 
-                            className="text-gray-800"
-                          />
-                          {message.isStreaming && !message.isThinking && (
-                            <span className="inline-block w-2 h-4 bg-gray-800 ml-1 animate-pulse" />
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  
-                  <div
-                    className={`text-xs text-gray-400 mt-1 flex items-center ${
-                      message.sender === "user" ? "justify-end mr-1" : "ml-1"
-                    }`}
-                  >
-                    <span>{message.time}</span>
-                    {message.sender === "ai" && message.model && (
-                      <span className="ml-2 px-1.5 py-0.5 bg-gray-200 rounded text-gray-600 text-xs">
-                        {message.model === 'deepseek-reasoning' ? 'Deepseek' : 'Claude'}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                {message.sender === "user" && (
-                  <div className="flex-shrink-0 ml-2">
-                    <div className="h-8 w-8 rounded-full bg-lime-400 flex items-center justify-center text-indigo-900 text-xs font-medium">
-                      You
-                    </div>
-                  </div>
-                )}
+        {messages.length === 0 ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center">
+              <div className="bg-gradient-to-r from-indigo-600 to-purple-600 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Sparkles className="h-6 w-6 text-white" />
               </div>
-            </motion.div>
-          ))}
-          <div ref={messagesEndRef} />
-        </AnimatePresence>
-      </div>      {/* Input - Fixed at bottom, always visible */}
-      <div className="p-3 border-t border-gray-100 bg-white flex-shrink-0">
-        <div className="relative flex items-center">
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">Hello! I'm GenEdu Agent, your AI learning assistant.</h3>
+              <p className="text-gray-600 text-sm max-w-md">
+                I can help you with studying, explaining concepts, creating quizzes, and more. How can I assist you today?
+              </p>
+            </div>
+          </div>
+        ) : (
+          <AnimatePresence>
+            {messages.map((message) => (
+              <motion.div
+                key={message.id}
+                className={`flex ${message.sender === "user" ? "justify-end" : "justify-start"}`}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                <div className={`flex items-start max-w-[80%] ${message.sender === "user" ? "flex-row-reverse" : ""}`}>
+                  {message.sender === "ai" && (
+                    <div className="flex-shrink-0 mr-3">
+                      <div className={`h-8 w-8 rounded-full flex items-center justify-center text-white text-xs font-medium ${
+                        message.model === 'deepseek-reasoning' 
+                          ? 'bg-gradient-to-r from-purple-600 to-purple-800' 
+                          : 'bg-gradient-to-r from-indigo-600 to-blue-600'
+                      }`}>
+                        {message.model === 'deepseek-reasoning' ? (
+                          <Brain className="h-4 w-4" />
+                        ) : (
+                          <Sparkles className="h-4 w-4" />
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex flex-col">
+                    {/* Thinking Bar */}
+                    {message.sender === "ai" && message.model === 'deepseek-reasoning' && (message.thinking || message.isThinking) && (
+                      <ThinkingBar 
+                        thinking={message.thinking} 
+                        isThinking={message.isThinking}
+                      />
+                    )}
+
+                    {/* Main message content */}
+                    {message.text && (
+                      <div
+                        className={`p-3 rounded-2xl ${message.sender === "ai" && message.model === 'deepseek-reasoning' && (message.thinking || message.isThinking) ? 'mt-2' : ''} ${
+                          message.sender === "user" 
+                            ? "bg-indigo-600 text-white" 
+                            : "bg-white text-gray-800 border border-gray-200"
+                        }`}
+                      >
+                        {message.sender === "user" ? (
+                          <div className="whitespace-pre-wrap">
+                            {message.text}
+                            {message.isStreaming && !message.isThinking && (
+                              <span className="inline-block w-2 h-4 bg-white ml-1 animate-pulse" />
+                            )}
+                          </div>
+                        ) : (
+                          <div className="prose prose-sm max-w-none">
+                            <MarkdownRenderer 
+                              content={message.text} 
+                              className="text-gray-800"
+                            />
+                            {message.isStreaming && !message.isThinking && (
+                              <span className="inline-block w-2 h-4 bg-gray-800 ml-1 animate-pulse" />
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
+                    <div className={`text-xs text-gray-400 mt-1 flex items-center ${
+                      message.sender === "user" ? "justify-end mr-1" : "ml-1"
+                    }`}>
+                      <span>{message.time}</span>
+                      {message.sender === "ai" && message.model && (
+                        <span className="ml-2 px-1.5 py-0.5 bg-gray-200 rounded text-gray-600 text-xs">
+                          {message.model === 'deepseek-reasoning' ? 'Deepseek' : 'Claude'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {message.sender === "user" && (
+                    <div className="flex-shrink-0 mr-2 mt-2">
+                      <div className="h-8 w-8 rounded-full bg-gray-300 flex items-center justify-center text-gray-700 text-xs font-medium">
+                        You
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        )}
+      </div>
+
+      {/* Input Section */}
+      <div className="border-t border-gray-200 bg-white p-4">
+        <div className="flex items-center space-x-2">
           <Input
-            className={`pr-10 border-gray-200 focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 rounded-full bg-gray-50 ${
-              isFullScreen ? 'h-12 text-base' : 'h-10'
-            }`}
-            placeholder={`Message GenEdu Agent${useReasoning ? ' (Reasoning Mode)' : ''}...`}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
+            onKeyDown={handleKeyPress}
+            placeholder="Message GenEdu Agent..."
+            className="flex-1 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-lg"
             disabled={isLoading || isStreaming}
           />
           <Button
-            className={`absolute right-1 text-white rounded-full p-2 flex items-center justify-center ${
-              isFullScreen ? 'h-10 w-10' : 'h-8 w-8'
+            className={`${
+              isFullScreen ? 'h-10 w-10' : 'h-9 w-9'
             } ${
               isLoading || isStreaming 
                 ? 'bg-gray-400 cursor-not-allowed' 
                 : useReasoning
                   ? 'bg-purple-600 hover:bg-purple-700'
-                  : 'bg-indigo-600 hover:bg-indigo-700'
-            }`}
-            onClick={handleSend}
+                  : useContext
+                    ? 'bg-blue-600 hover:bg-blue-700'
+                    : 'bg-indigo-600 hover:bg-indigo-700'
+            } rounded-lg p-0`}
+            onClick={onSend}
             disabled={isLoading || isStreaming || !input.trim()}
           >
             <ArrowUp className={`${isFullScreen ? 'h-5 w-5' : 'h-4 w-4'}`} />
@@ -289,7 +433,7 @@ export function ChatInterface({ isFullScreen = false }: { isFullScreen?: boolean
         {isStreaming && (
           <div className="mt-2 text-xs text-gray-500 flex items-center">
             <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-indigo-600 mr-2"></div>
-            {useReasoning ? 'Reasoning through your question...' : 'Generating response...'}
+            {useReasoning ? 'Reasoning through your question...' : useContext ? 'Analyzing with your learning context...' : 'Generating response...'}
           </div>
         )}
       </div>
