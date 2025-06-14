@@ -3,6 +3,7 @@ import connectToDatabase from "@/lib/database/mongodb"
 import Quiz from '@/lib/models/Quiz'
 import { AuthUtils } from '@/lib/auth/utils'
 import { ActivityTracker } from '@/lib/utils/activity-tracker'
+import { KnowledgeBaseManager } from '@/lib/utils/knowledge-base';
 
 export async function POST(
   request: NextRequest,
@@ -10,6 +11,7 @@ export async function POST(
 ) {
   try {
     const token = request.cookies.get('auth-token')?.value;
+  
 
     if (!token) {
       return NextResponse.json(
@@ -89,16 +91,34 @@ export async function POST(
     quiz.stats.totalAttempts += 1;
     const allScores = quiz.attempts.map((a: any) => a.percentage)
     quiz.stats.averageScore = Math.round(allScores.reduce((sum: number, score: number) => sum + score, 0) / allScores.length)
-    quiz.stats.completionRate = Math.round((quiz.attempts.filter((a: any) => a.isCompleted).length / quiz.stats.totalAttempts) * 100)
+    quiz.stats.completionRate = Math.round((quiz.attempts.filter((a: any) => a.isCompleted).length / quiz.stats.totalAttempts) * 100);
 
-    await quiz.save()    // Track activity
+    await quiz.save();
+
+    // Add quiz to knowledge base after successful submission
+    try {
+      const submissionData = {
+        score: percentage,
+        questionsCount: quiz.questions.length,
+        answers: detailedResults
+      };
+      
+      await KnowledgeBaseManager.addQuizToKnowledgeBase(quiz.quizId, payload.userId, submissionData);
+      console.log('Quiz successfully added to knowledge base with submission data');
+    } catch (kbError) {
+      console.error('Failed to add quiz to knowledge base:', kbError);
+      // Don't fail the request if knowledge base update fails
+    }
+
+    // Track activity
     try {
       await ActivityTracker.trackActivity(
         payload.userId,
         'quiz_completed',
         {
           title: `Completed quiz: ${quiz.title}`,
-          description: `Scored ${percentage}% (${correctAnswers}/${quiz.questions.length} correct)`,          metadata: {
+          description: `Scored ${percentage}% (${correctAnswers}/${quiz.questions.length} correct)`,
+          metadata: {
             quizId: quiz.quizId,
             score: percentage,
             questionsCount: quiz.questions.length,

@@ -16,7 +16,7 @@ export interface UseChatReturn {
   isLoading: boolean
   isStreaming: boolean
   threadId: string | null
-  sendMessage: (message: string, useReasoning?: boolean) => Promise<void>
+  sendMessage: (message: string, useReasoning?: boolean, useContext?: boolean) => Promise<void>
   clearChat: () => void
   loadThread: (threadId: string) => Promise<void>
 }
@@ -48,8 +48,7 @@ export function useChat(): UseChatReturn {
   const [isStreaming, setIsStreaming] = useState(false)
   const [threadId, setThreadId] = useState<string | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
-
-  const sendMessage = useCallback(async (message: string, useReasoning = false) => {
+  const sendMessage = useCallback(async (message: string, useReasoning = false, useContext = true) => {
     if (!message.trim() || isLoading || isStreaming) return
 
     const userMessage: ChatMessage = {
@@ -92,7 +91,8 @@ export function useChat(): UseChatReturn {
         body: JSON.stringify({
           message,
           threadId,
-          useReasoning
+          useReasoning,
+          useContext
         }),
         signal: abortControllerRef.current.signal
       })
