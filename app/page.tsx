@@ -23,11 +23,14 @@ config()
 export default function Home() {
   // This is a server component, so we can't use useEffect here
   // The scroll reset will be handled in the client components
-
   return (
-    <main className="min-h-screen flex flex-col bg-gray-100">
+    <main className="min-h-screen flex flex-col bg-gradient-to-br from-gray-50 via-white to-indigo-50">
       <Navbar />
-      <DashboardContent />
+      <div className="flex-1 relative">
+        {/* Background Pattern */}
+        <div className="absolute inset-0 bg-grid-pattern opacity-5 pointer-events-none"></div>
+        <DashboardContent />
+      </div>
     </main>
   )
 }
