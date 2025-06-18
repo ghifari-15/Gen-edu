@@ -4,25 +4,79 @@ import { Navbar } from "@/components/navbar"
 import { DashboardContent } from "@/components/dashboard-content"
 import { config } from "dotenv"
 import { LoginForm } from "../components/login/login-form"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@/lib/auth/AuthContext"
 
 config()
 
-// export function LoginPage() {
-//   return (
-//     <div className="flex min-h-svh flex-col items-center justify-center gap-6 bg-background p-6 md:p-10">
-//       <div className="w-full max-w-sm">
-//         <LoginForm />
-//       </div>
-//     </div>
-//   )
-// }
-
-
 export default function Home() {
-  // This is a server component, so we can't use useEffect here
-  // The scroll reset will be handled in the client components
+  const { user, isLoading, isAuthenticated } = useAuth()
+  const router = useRouter()
+  const [showLogin, setShowLogin] = useState(false)
+
+  useEffect(() => {
+    if (!isLoading) {
+      if (!isAuthenticated || !user) {
+        setShowLogin(true)
+      } else {
+        setShowLogin(false)
+      }
+    }
+  }, [isLoading, isAuthenticated, user])
+  // Show loading spinner while checking authentication
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 via-white to-indigo-50">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-gray-600 text-lg">Loading GenEdu...</p>
+        </div>
+      </div>
+    )
+  }
+  // Show login form if not authenticated
+  if (showLogin || (!isAuthenticated && !isLoading)) {
+    return (
+      <div className="min-h-screen relative overflow-hidden">
+        {/* Animated Background */}
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+          {/* Animated shapes */}
+          <div className="absolute top-0 left-0 w-full h-full overflow-hidden">
+            <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-indigo-400/20 to-purple-400/20 rounded-full blur-3xl animate-pulse"></div>
+            <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-tr from-purple-400/20 to-pink-400/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-60 h-60 bg-gradient-to-r from-indigo-300/10 to-purple-300/10 rounded-full blur-2xl animate-ping"></div>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="relative z-10 flex min-h-screen flex-col items-center justify-center p-6 md:p-10">
+          {/* Header */}
+          <div className="text-center mb-8 space-y-4">
+            <div className="flex items-center justify-center mb-6">
+              <div className="relative">
+                <div className="w-20 h-20 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-3xl flex items-center justify-center shadow-2xl">
+                  <span className="text-white font-bold text-3xl">G</span>
+                </div>
+                <div className="absolute -inset-1 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-3xl blur opacity-25 animate-pulse"></div>
+              </div>
+            </div>
+            <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-800 bg-clip-text text-transparent mb-4">
+              GenEdu
+            </h1>
+            <p className="text-gray-600 text-lg md:text-xl max-w-md mx-auto leading-relaxed">
+              Your AI-powered learning companion for enhanced education
+            </p>
+          </div>
+
+          {/* Login Form */}
+          <LoginForm />
+        </div>
+      </div>
+    )
+  }
+
+  // Show dashboard if authenticated
   return (
     <main className="min-h-screen flex flex-col bg-gradient-to-br from-gray-50 via-white to-indigo-50">
       <Navbar />

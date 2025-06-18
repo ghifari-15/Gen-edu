@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 // Protected routes yang memerlukan authentication
 const protectedRoutes = [
-  '/',
+  '/dashboard',
   '/notebook',
   '/quiz',
   '/profile',
@@ -12,6 +12,7 @@ const protectedRoutes = [
 
 // Public routes yang bisa diakses tanpa authentication
 const publicRoutes = [
+  '/',
   '/login',
   '/register',
   '/onboarding',
