@@ -74,12 +74,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     checkAuth()
   }, [])
-
   const checkAuth = async () => {
     try {
       const response = await fetch('/api/auth/me', {
         method: 'GET',
-        credentials: 'include'
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
       })
 
       if (response.ok) {
@@ -94,11 +96,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setUser(null)
         setIsAuthenticated(false)
+        // Clear auth token if present but invalid
+        if (response.status === 401) {
+          document.cookie = 'auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;'
+        }
       }
     } catch (error) {
       console.error('Auth check failed:', error)
       setUser(null)
-      setIsAuthenticated(false)    } finally {
+      setIsAuthenticated(false)
+    } finally {
       setIsLoading(false)
     }
   }
