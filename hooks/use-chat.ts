@@ -83,10 +83,52 @@ export function useChat(): UseChatReturn {
 
       abortControllerRef.current = new AbortController()
 
-      const response = await fetch('/api/chat', {
+      // Try RAG system first for better knowledge-based responses
+      let response
+      try {
+        response = await fetch('/api/rag/query', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            query: message,
+            limit: 5
+          }),
+          signal: abortControllerRef.current.signal
+        })
+
+        if (response.ok) {
+          const ragData = await response.json()
+          if (ragData.success && ragData.answer) {
+            // Update AI message with RAG response
+            setMessages(prev => prev.map(msg => 
+              msg.id === aiMessageId 
+                ? { 
+                    ...msg, 
+                    text: ragData.answer,
+                    isStreaming: false,
+                    thinking: ragData.confidence > 0 
+                      ? `Retrieved from ${ragData.relevantKnowledge?.length || 0} knowledge sources with ${Math.round(ragData.confidence)}% confidence`
+                      : undefined
+                  }
+                : msg
+            ))
+            setIsLoading(false)
+            setIsStreaming(false)
+            return
+          }
+        }
+      } catch (ragError) {
+        console.log('RAG failed, falling back to chat API:', ragError)
+      }
+
+      // Fallback to original chat API
+      response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',        },
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           message,
           threadId,

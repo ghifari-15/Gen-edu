@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import AdminDashboard from "@/components/admin/admin-dashboard"
 import AdminSidebar from "@/components/admin/admin-sidebar"
+import UserManagement from "@/components/admin/user-management"
 
-export default function AdminPage() {
+export default function AdminUsersPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const router = useRouter()
@@ -16,25 +16,19 @@ export default function AdminPage() {
 
   const checkAdminAuth = async () => {
     try {
-      console.log('Checking admin auth...')
-      const response = await fetch('/api/auth/admin/me', {
+      const response = await fetch('/api/auth/admin/me-mock', {
         method: 'GET',
         credentials: 'include'
       })
 
-      console.log('Auth response status:', response.status)
-      
       if (response.ok) {
         const data = await response.json()
-        console.log('Auth response data:', data)
         if (data.success && data.user?.role === 'admin') {
           setIsAuthenticated(true)
         } else {
-          console.log('Not authenticated, redirecting to login')
           router.push('/admin/login')
         }
       } else {
-        console.log('Auth request failed, redirecting to login')
         router.push('/admin/login')
       }
     } catch (error) {
@@ -54,14 +48,14 @@ export default function AdminPage() {
   }
 
   if (!isAuthenticated) {
-    return null // Will redirect to login
+    return null
   }
 
   return (
     <div className="flex h-screen bg-gray-100">
       <AdminSidebar />
       <main className="flex-1 overflow-y-auto">
-        <AdminDashboard />
+        <UserManagement />
       </main>
     </div>
   )
