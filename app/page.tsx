@@ -51,23 +51,7 @@ export default function Home() {
 
         {/* Content */}
         <div className="relative z-10 flex min-h-screen flex-col items-center justify-center p-6 md:p-10">
-          {/* Header */}
-          <div className="text-center mb-8 space-y-4">
-            <div className="flex items-center justify-center mb-6">
-              <div className="relative">
-                <div className="w-20 h-20 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-3xl flex items-center justify-center shadow-2xl">
-                  <span className="text-white font-bold text-3xl">G</span>
-                </div>
-                <div className="absolute -inset-1 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-3xl blur opacity-25 animate-pulse"></div>
-              </div>
-            </div>
-            <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-800 bg-clip-text text-transparent mb-4">
-              GenEdu
-            </h1>
-            <p className="text-gray-600 text-lg md:text-xl max-w-md mx-auto leading-relaxed">
-              Your AI-powered learning companion for enhanced education
-            </p>
-          </div>
+         
 
           {/* Login Form */}
           <LoginForm />

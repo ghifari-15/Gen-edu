@@ -48,6 +48,15 @@ function verifyTokenSimple(token: string): any {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get('auth-token')?.value;
+  
+  // Debug logging
+  console.log('Middleware - Path:', pathname, 'Token exists:', !!token);
+
+  // Temporarily bypass middleware for register route to debug
+  if (pathname === '/register') {
+    console.log('Bypassing middleware for /register');
+    return NextResponse.next();
+  }
 
   // Allow API routes to handle their own authentication
   if (pathname.startsWith('/api/')) {
@@ -75,7 +84,14 @@ export async function middleware(request: NextRequest) {
     if (token && isAuthRoute) {
       const payload = verifyTokenSimple(token);
       if (payload) {
+        console.log('Redirecting authenticated user from auth route:', pathname);
         return NextResponse.redirect(new URL('/', request.url));
+      } else {
+        // Invalid token, clear it and allow access to auth routes
+        console.log('Invalid token found, clearing cookie for auth route:', pathname);
+        const response = NextResponse.next();
+        response.cookies.delete('auth-token');
+        return response;
       }
     }
     return NextResponse.next();

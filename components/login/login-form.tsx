@@ -3,6 +3,7 @@
 import type React from "react"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { Eye, EyeOff, Mail, Lock } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -205,20 +206,20 @@ export function LoginForm({ className, ...props }: React.ComponentPropsWithoutRe
               "Sign in to GenEdu"
             )}
           </Button>
-
-          {/* Register Link */}
-          <div className="text-center pt-4 border-t border-gray-100">
-            <p className="text-gray-600 text-sm">
-              Don&apos;t have an account?{" "}
-              <a 
-                href="/register" 
-                className="font-medium text-indigo-600 hover:text-indigo-700 transition-colors duration-200"
-              >
-                Create one here
-              </a>
-            </p>
-          </div>
         </form>
+
+        {/* Register Link - moved outside form */}
+        <div className="text-center pt-4 border-t border-gray-100 mt-6">
+          <p className="text-gray-600 text-sm">
+            Don&apos;t have an account?{" "}
+            <Link 
+              href="/register"
+              className="font-medium text-indigo-600 hover:text-indigo-700 transition-colors duration-200 underline cursor-pointer"
+            >
+              Create one here
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   )
