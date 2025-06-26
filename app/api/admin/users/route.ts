@@ -3,6 +3,7 @@ import { verifyAdminToken } from '@/lib/auth/verify-token'
 import { MongoClient } from 'mongodb'
 import { AuthUtils } from '@/lib/auth/utils'
 import { randomUUID } from 'crypto'
+import bcrypt from 'bcryptjs'
 
 // GET - Fetch all users
 export async function GET(request: NextRequest) {
@@ -19,9 +20,9 @@ export async function GET(request: NextRequest) {
     const db = client.db(process.env.MONGODB_DB || 'genedu')
     const collection = db.collection('users')
     
-    // Get all users except admin
+    // Get all users
     const users = await collection
-      .find({ role: { $ne: 'admin' } })
+      .find({})
       .sort({ createdAt: -1 })
       .toArray()
     
@@ -57,46 +58,93 @@ export async function GET(request: NextRequest) {
 // POST - Create new user
 export async function POST(request: NextRequest) {
   try {
+    console.log('POST /api/admin/users called')
+    
     const adminUser = await verifyAdminToken(request)
+    console.log('Admin verification result:', !!adminUser)
+    
     if (!adminUser) {
-      return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 })
+      console.log('Unauthorized access attempt')
+      return NextResponse.json({ success: false, message: 'Unauthorized' }, { 
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      })
     }
 
-    const { name, email, password, role } = await request.json();
+    let body
+    try {
+      body = await request.json()
+    } catch (parseError) {
+      console.error('JSON parse error:', parseError)
+      return NextResponse.json({ 
+        success: false, 
+        message: 'Invalid JSON in request body' 
+      }, { 
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      })
+    }
+
+    const { name, email, password, role } = body
+
+    console.log('Creating user with data:', { name, email, role })
 
     // Validate input
     if (!name || !email || !password || !role) {
-      return NextResponse.json(
-        { success: false, message: 'All fields are required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ 
+        success: false, 
+        message: 'All fields are required' 
+      }, { 
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      })
     }
 
-    if (!['student', 'teacher'].includes(role)) {
-      return NextResponse.json(
-        { success: false, message: 'Invalid role specified' },
-        { status: 400 }
-      );
+    if (!['student', 'teacher', 'admin'].includes(role)) {
+      return NextResponse.json({ 
+        success: false, 
+        message: 'Invalid role specified' 
+      }, { 
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      })
     }
 
-    // Validate email format
-    if (!AuthUtils.isValidEmail(email)) {
-      return NextResponse.json(
-        { success: false, message: 'Invalid email format' },
-        { status: 400 }
-      );
+    // ✅ Simple email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      return NextResponse.json({ 
+        success: false, 
+        message: 'Invalid email format' 
+      }, { 
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      })
     }
 
-    // Validate password
-    const passwordValidation = AuthUtils.isValidPassword(password);
-    if (!passwordValidation.isValid) {
-      return NextResponse.json(
-        { success: false, message: passwordValidation.message },
-        { status: 400 }
-      );
+    // ✅ Simple password validation
+    if (password.length < 6) {
+      return NextResponse.json({ 
+        success: false, 
+        message: 'Password must be at least 6 characters long' 
+      }, { 
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      })
     }
 
     const uri = process.env.MONGODB_URI!
+    if (!uri) {
+      console.error('MONGODB_URI not set')
+      return NextResponse.json({ 
+        success: false, 
+        message: 'Database configuration error' 
+      }, { 
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      })
+    }
+
     const client = new MongoClient(uri)
     await client.connect()
     
@@ -104,88 +152,66 @@ export async function POST(request: NextRequest) {
     const collection = db.collection('users')
 
     // Check if user already exists
-    const existingUser = await collection.findOne({ email: email.toLowerCase() });
+    const existingUser = await collection.findOne({ email: email.toLowerCase() })
     if (existingUser) {
       await client.close()
-      return NextResponse.json(
-        { success: false, message: 'User with this email already exists' },
-        { status: 400 }
-      );
+      return NextResponse.json({ 
+        success: false, 
+        message: 'User with this email already exists' 
+      }, { 
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      })
     }
 
     // Hash password
-    const hashedPassword = await AuthUtils.hashPassword(password);
+    const saltRounds = 12
+    const hashedPassword = await bcrypt.hash(password, saltRounds)
 
-    // Create user document
+    // Create new user
     const newUser = {
       userId: randomUUID(),
       name: name.trim(),
       email: email.toLowerCase().trim(),
       password: hashedPassword,
       role,
-      isVerified: true, // Auto-verify admin-created users
+      isVerified: true, // Admin-created users are auto-verified
+      emailVerified: true, // Add for compatibility
       status: 'active',
       createdAt: new Date(),
+      updatedAt: new Date(),
       lastLogin: null,
-      preferences: {
-        theme: 'light',
-        language: 'en',
-        notifications: {
-          email: true,
-          push: false,
-          quiz: true,
-          notebook: true
-        }
-      },
-      profileData: {
-        bio: '',
-        institution: '',
-        grade: '',
-        subjects: [],
-        timezone: 'UTC'
-      },
-      statistics: {
-        notebooksCreated: 0,
-        quizzesCompleted: 0,
-        quizzesCreated: 0,
-        totalStudyTime: 0,
-        averageQuizScore: 0,
-        streakDays: 0,
-        lastActive: new Date()
-      },
-      subscription: {
-        plan: 'free',
-        status: 'active',
-        trialUsed: false
-      }
-    };
-
-    // Insert user into database
-    const result = await collection.insertOne(newUser);
-    
-    await client.close()
-
-    if (result.insertedId) {
-      // Return user data without password
-      const { password: _, ...userWithoutPassword } = newUser;
-      
-      return NextResponse.json({
-        success: true,
-        message: 'User created successfully',
-        user: userWithoutPassword
-      });
-    } else {
-      return NextResponse.json(
-        { success: false, message: 'Failed to create user' },
-        { status: 500 }
-      );
+      verifiedAt: new Date() // Add verification timestamp
     }
 
+    await collection.insertOne(newUser)
+    await client.close()
+
+    console.log('User created successfully:', newUser.userId)
+
+    return NextResponse.json({ 
+      success: true, 
+      message: 'User created successfully',
+      user: {
+        userId: newUser.userId,
+        name: newUser.name,
+        email: newUser.email,
+        role: newUser.role,
+        isVerified: newUser.isVerified,
+        createdAt: newUser.createdAt
+      }
+    }, {
+      headers: { 'Content-Type': 'application/json' }
+    })
+
   } catch (error) {
-    console.error('Create user error:', error);
-    return NextResponse.json(
-      { success: false, message: 'Internal server error' },
-      { status: 500 }
-    );
+    console.error('Error creating user:', error)
+    return NextResponse.json({ 
+      success: false, 
+      message: 'Internal server error' 
+    }, { 
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    })
   }
 }

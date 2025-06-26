@@ -7,14 +7,22 @@ export interface IUser extends Document {
   email: string;
   password: string;
   name: string;
-  role: 'student' | 'teacher' | 'admin';  avatar?: string;
+  role: 'student' | 'teacher' | 'admin';
+  avatar?: string;
   isEmailVerified: boolean;
+  isVerified?: boolean; // Add for compatibility with admin-created users
+  emailVerified?: boolean; // Add for compatibility with admin-created users
   onboardingCompleted: boolean;
   lastLogin?: Date;
   preferences: {
     theme: 'light' | 'dark';
     language: string;
-    notifications: boolean;
+    notifications: {
+      email: boolean;
+      push: boolean;
+      quiz: boolean;
+      notebook: boolean;
+    };
   };
   profile: {
     bio?: string;
@@ -83,6 +91,14 @@ const UserSchema = new Schema<IUser>(
       type: Boolean,
       default: false,
     },
+    isVerified: {
+      type: Boolean,
+      default: false,
+    },
+    emailVerified: {
+      type: Boolean,
+      default: false,
+    },
     onboardingCompleted: {
       type: Boolean,
       default: false,
@@ -101,8 +117,22 @@ const UserSchema = new Schema<IUser>(
         default: 'id',
       },
       notifications: {
-        type: Boolean,
-        default: true,
+        email: {
+          type: Boolean,
+          default: true,
+        },
+        push: {
+          type: Boolean,
+          default: false,
+        },
+        quiz: {
+          type: Boolean,
+          default: true,
+        },
+        notebook: {
+          type: Boolean,
+          default: true,
+        }
       },
     },    profile: {
       bio: {

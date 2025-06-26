@@ -150,7 +150,7 @@ export default function SignupPage() {
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-600 fpx-4 py-3 rounded-md text-sm">
+              <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md text-sm">
                 {error}
               </div>
             )}
@@ -247,6 +247,31 @@ export default function SignupPage() {
                       className={`h-2 rounded-full transition-all duration-300 ${getPasswordStrengthColor()}`}
                       style={{ width: `${passwordStrength}%` }}
                     />
+                  </div>
+                  <div className="text-xs text-gray-500 space-y-1">
+                    <p>Password must contain:</p>
+                    <ul className="space-y-1 ml-2">
+                      <li className={`flex items-center space-x-1 ${formData.password.length >= 8 ? 'text-green-600' : 'text-gray-400'}`}>
+                        <span>{formData.password.length >= 8 ? '✓' : '○'}</span>
+                        <span>At least 8 characters</span>
+                      </li>
+                      <li className={`flex items-center space-x-1 ${/[A-Z]/.test(formData.password) ? 'text-green-600' : 'text-gray-400'}`}>
+                        <span>{/[A-Z]/.test(formData.password) ? '✓' : '○'}</span>
+                        <span>One uppercase letter</span>
+                      </li>
+                      <li className={`flex items-center space-x-1 ${/[a-z]/.test(formData.password) ? 'text-green-600' : 'text-gray-400'}`}>
+                        <span>{/[a-z]/.test(formData.password) ? '✓' : '○'}</span>
+                        <span>One lowercase letter</span>
+                      </li>
+                      <li className={`flex items-center space-x-1 ${/\d/.test(formData.password) ? 'text-green-600' : 'text-gray-400'}`}>
+                        <span>{/\d/.test(formData.password) ? '✓' : '○'}</span>
+                        <span>One number</span>
+                      </li>
+                      <li className={`flex items-center space-x-1 ${/[^a-zA-Z\d]/.test(formData.password) ? 'text-green-600' : 'text-gray-400'}`}>
+                        <span>{/[^a-zA-Z\d]/.test(formData.password) ? '✓' : '○'}</span>
+                        <span>One special character</span>
+                      </li>
+                    </ul>
                   </div>
                 </div>
               )}  

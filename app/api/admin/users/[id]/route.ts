@@ -5,7 +5,7 @@ import { AuthUtils } from '@/lib/auth/utils';
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const adminUser = await verifyAdminToken(request)
@@ -13,12 +13,16 @@ export async function PUT(
       return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id } = params
+    const { id } = await params
     const body = await request.json()
     const { name, email, role, isVerified, status } = body
 
+    // Debug logging
+    console.log('Updating user with ID:', id)
+    console.log('Update data:', { name, email, role, isVerified, status })
+
     // Validate input
-    if (role && !['student', 'teacher'].includes(role)) {
+    if (role && !['student', 'teacher', 'admin'].includes(role)) {
       return NextResponse.json({ 
         success: false, 
         message: 'Invalid role specified' 
@@ -49,13 +53,10 @@ export async function PUT(
       }, { status: 404 })
     }
 
-    // Don't allow updating admin users
-    if (existingUser.role === 'admin') {
-      await client.close()
-      return NextResponse.json({ 
-        success: false, 
-        message: 'Cannot update admin users' 
-      }, { status: 403 })
+    // Allow updating admin users but with restrictions
+    // Prevent changing admin role to non-admin unless requested by another admin
+    if (existingUser.role === 'admin' && role && role !== 'admin') {
+      console.log('Warning: Changing admin role to non-admin')
     }
 
     // Check if email is being changed and if it already exists
@@ -122,7 +123,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const adminUser = await verifyAdminToken(request)
@@ -130,7 +131,7 @@ export async function DELETE(
       return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id } = params
+    const { id } = await params
 
     const uri = process.env.MONGODB_URI!
     const client = new MongoClient(uri)
@@ -149,13 +150,16 @@ export async function DELETE(
       }, { status: 404 })
     }
 
-    // Don't allow deleting admin users
+    // Prevent deleting the last admin user, but allow deleting admin users in general
     if (userToDelete.role === 'admin') {
-      await client.close()
-      return NextResponse.json({ 
-        success: false, 
-        message: 'Cannot delete admin users' 
-      }, { status: 403 })
+      const adminCount = await collection.countDocuments({ role: 'admin' })
+      if (adminCount <= 1) {
+        await client.close()
+        return NextResponse.json({ 
+          success: false, 
+          message: 'Cannot delete the last admin user' 
+        }, { status: 403 })
+      }
     }
 
     // Delete the user

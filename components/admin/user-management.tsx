@@ -59,6 +59,8 @@ export default function UserManagement() {
   const [isEditUserOpen, setIsEditUserOpen] = useState(false)
   const [isCreatingUser, setIsCreatingUser] = useState(false)
   const [isUpdatingUser, setIsUpdatingUser] = useState(false)
+  const [createError, setCreateError] = useState("")
+  const [editError, setEditError] = useState("")
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [newUserForm, setNewUserForm] = useState<NewUserForm>({
     name: "",
@@ -102,51 +104,79 @@ export default function UserManagement() {
     }
   }
 
+  // Check if user is still authenticated
+  const checkAuth = async () => {
+    try {
+      const response = await fetch('/api/auth/verify', {
+        credentials: 'include'
+      })
+      if (!response.ok) {
+        setCreateError('Authentication expired. Please login again.')
+        // Optionally redirect to login
+        // window.location.href = '/login'
+        return false
+      }
+      return true
+    } catch (error) {
+      setCreateError('Authentication check failed.')
+      return false
+    }
+  }
+
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsCreatingUser(true)
+    setCreateError("")
+
+    // ✅ Check authentication first
+    const isAuthenticated = await checkAuth()
+    if (!isAuthenticated) {
+      setIsCreatingUser(false)
+      return
+    }
 
     try {
+      console.log('Sending request with data:', newUserForm) // Debug log
+
       const response = await fetch('/api/admin/users', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
-        credentials: 'include',
-        body: JSON.stringify(newUserForm)
+        credentials: 'include', // ✅ Add this for authentication
+        body: JSON.stringify(newUserForm),
       })
 
-      if (response.ok) {
-        const data = await response.json()
-        if (data.success) {
-          await fetchUsers() // Refresh user list
-          setIsAddUserOpen(false)
-          setNewUserForm({
-            name: "",
-            email: "",
-            password: "",
-            role: "student"
-          })
-          toast({
-            title: "Success",
-            description: "User created successfully"
-          })
-        }
-      } else {
-        const data = await response.json()
+      console.log('Response status:', response.status) // Debug log
+      console.log('Response headers:', response.headers) // Debug log
+
+      // ✅ Check if response is actually JSON
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        const textResponse = await response.text()
+        console.error('Non-JSON response:', textResponse)
+        setCreateError('Server returned invalid response. Please check your login status.')
+        return
+      }
+
+      const data = await response.json()
+      console.log('Response data:', data) // Debug log
+
+      if (data.success) {
+        setIsAddUserOpen(false)
+        setNewUserForm({ name: '', email: '', password: '', role: 'student' })
+        fetchUsers()
+        
         toast({
-          title: "Error",
-          description: data.message || "Failed to create user",
-          variant: "destructive"
+          title: "Success",
+          description: "User created successfully. They can now login with their credentials.",
         })
+      } else {
+        setCreateError(data.message || 'Failed to create user')
       }
     } catch (error) {
-      console.error('Failed to create user:', error)
-      toast({
-        title: "Error",
-        description: "Failed to create user",
-        variant: "destructive"
-      })
+      console.error('Create user error:', error)
+      setCreateError('Network error or invalid response. Please try again.')
     } finally {
       setIsCreatingUser(false)
     }
@@ -157,6 +187,11 @@ export default function UserManagement() {
     if (!selectedUser) return
     
     setIsUpdatingUser(true)
+    setEditError("")
+
+    // Debug logging
+    console.log('Editing user with ID:', selectedUser.userId)
+    console.log('Edit form data:', editUserForm)
 
     try {
       const response = await fetch(`/api/admin/users/${selectedUser.userId}`, {
@@ -168,8 +203,12 @@ export default function UserManagement() {
         body: JSON.stringify(editUserForm)
       })
 
+      console.log('Edit response status:', response.status)
+      console.log('Edit response ok:', response.ok)
+
       if (response.ok) {
         const data = await response.json()
+        console.log('Edit success response data:', data)
         if (data.success) {
           await fetchUsers() // Refresh user list
           setIsEditUserOpen(false)
@@ -181,6 +220,7 @@ export default function UserManagement() {
         }
       } else {
         const data = await response.json()
+        console.log('Edit error response data:', data)
         toast({
           title: "Error",
           description: data.message || "Failed to update user",
@@ -227,6 +267,37 @@ export default function UserManagement() {
       toast({
         title: "Error",
         description: "Failed to delete user",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const fixVerification = async () => {
+    try {
+      const response = await fetch('/api/admin/fix-verification', {
+        method: 'POST',
+        credentials: 'include'
+      })
+
+      const data = await response.json()
+      
+      if (data.success) {
+        toast({
+          title: "Success",
+          description: data.message
+        })
+        fetchUsers() // Refresh users
+      } else {
+        toast({
+          title: "Error", 
+          description: data.message,
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to fix verification",
         variant: "destructive"
       })
     }
@@ -293,13 +364,21 @@ export default function UserManagement() {
           </p>
         </div>
         
-        <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-purple-600 hover:bg-purple-700">
-              <Plus className="h-4 w-4 mr-2" />
-              Add User
-            </Button>
-          </DialogTrigger>
+        <div className="flex space-x-3">
+          <Button 
+            variant="outline"
+            onClick={fixVerification}
+            className="text-blue-600 border-blue-600 hover:bg-blue-50"
+          >
+            Fix Verification
+          </Button>
+          <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-purple-600 hover:bg-purple-700">
+                <Plus className="h-4 w-4 mr-2" />
+                Add User
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Add New User</DialogTitle>
@@ -309,6 +388,12 @@ export default function UserManagement() {
             </DialogHeader>
             <form onSubmit={handleCreateUser}>
               <div className="space-y-4 py-4">
+                {createError && (
+                  <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md text-sm">
+                    {createError}
+                  </div>
+                )}
+                
                 <div className="space-y-2">
                   <Label htmlFor="name">Full Name</Label>
                   <Input
@@ -345,8 +430,8 @@ export default function UserManagement() {
                   <Label htmlFor="role">Role</Label>
                   <Select 
                     value={newUserForm.role} 
-                    onValueChange={(value: 'student' | 'teacher') => 
-                      setNewUserForm(prev => ({ ...prev, role: value }))
+                    onValueChange={(value) => 
+                      setNewUserForm(prev => ({ ...prev, role: value as 'student' | 'teacher' | 'admin' }))
                     }
                   >
                     <SelectTrigger>
@@ -364,7 +449,10 @@ export default function UserManagement() {
                 <Button 
                   type="button" 
                   variant="outline" 
-                  onClick={() => setIsAddUserOpen(false)}
+                  onClick={() => {
+                    setIsAddUserOpen(false)
+                    setCreateError("") // Clear error when closing
+                  }}
                 >
                   Cancel
                 </Button>
@@ -375,6 +463,7 @@ export default function UserManagement() {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Search and Stats */}
@@ -557,8 +646,8 @@ export default function UserManagement() {
                 <Label htmlFor="edit-role">Role</Label>
                 <Select 
                   value={editUserForm.role} 
-                  onValueChange={(value: 'student' | 'teacher' | 'admin') => 
-                    setEditUserForm(prev => ({ ...prev, role: value }))
+                  onValueChange={(value) => 
+                    setEditUserForm(prev => ({ ...prev, role: value as 'student' | 'teacher' | 'admin' }))
                   }
                 >
                   <SelectTrigger>
