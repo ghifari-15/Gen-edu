@@ -419,6 +419,12 @@ export function NotebookEditor({ notebookId }: NotebookEditorProps) {
               >
                 AI Chat
               </TabsTrigger>
+              <TabsTrigger
+                value="rag"
+                className="flex-1 rounded-none data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 h-full"
+              >
+                Knowledge
+              </TabsTrigger>
             </TabsList>
           </Tabs>
         </div>

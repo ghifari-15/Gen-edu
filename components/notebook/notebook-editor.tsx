@@ -91,8 +91,22 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
     const [content, setContent] = useState<string>(notebook?.content || '')
   const [title, setTitle] = useState<string>(notebook?.title || '')
   const [activeTab, setActiveTab] = useState<string>("notes")
-  const [aiMessages, setAiMessages] = useState<Array<{id: string, role: 'user' | 'ai', content: string}>>([
-    { id: '1', role: 'ai', content: "Hello! I'm your AI assistant. How can I help with your notes today?" }
+  const [aiMessages, setAiMessages] = useState<Array<{
+    id: string, 
+    role: 'user' | 'ai', 
+    content: string,
+    sources?: Array<{content: string, metadata?: any}>,
+    isLoading?: boolean,
+    isError?: boolean,
+    timestamp?: string,
+    usedRAG?: boolean
+  }>>([
+    { 
+      id: '1', 
+      role: 'ai', 
+      content: "Hello! I'm your AI assistant. I can help answer questions based on the content you upload to this notebook. Upload PDFs or text files to get started, or ask me general questions!",
+      timestamp: new Date().toISOString()
+    }
   ])
   const [aiInput, setAiInput] = useState("")
   const [fontSize, setFontSize] = useState("14")
@@ -100,7 +114,7 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
   const [sources, setSources] = useState<Array<{id: string, name: string, type: string, url?: string}>>([])
   const [wordCount, setWordCount] = useState(0)
   const [showShortcuts, setShowShortcuts] = useState(false)
-    const isMobile = useIsMobile()
+  const isMobile = useIsMobile()
   const editorRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -237,23 +251,164 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
     }
   }, [applyFormat])
 
-  // AI Chat functionality
+  // AI Chat functionality with RAG search + fallback to LLM
   const handleAiSubmit = async () => {
     if (!aiInput.trim()) return
     
-    const userMessage = { id: Date.now().toString(), role: 'user' as const, content: aiInput }
+    const userMessage = { 
+      id: Date.now().toString(), 
+      role: 'user' as const, 
+      content: aiInput,
+      timestamp: new Date().toISOString()
+    }
     setAiMessages(prev => [...prev, userMessage])
+    const currentInput = aiInput
     setAiInput("")
     
-    // Simulate AI response
-    setTimeout(() => {
-      const aiResponse = { 
-        id: (Date.now() + 1).toString(), 
-        role: 'ai' as const, 
-        content: `I understand you're asking about "${aiInput}". Based on your notes, I can help you expand on this topic. Would you like me to suggest some key points or help you organize your thoughts?`
+    // Add loading message
+    const loadingMessage = {
+      id: (Date.now() + 1).toString(),
+      role: 'ai' as const,
+      content: "🔍 Searching knowledge base...",
+      isLoading: true,
+      timestamp: new Date().toISOString()
+    }
+    setAiMessages(prev => [...prev, loadingMessage])
+    
+    try {
+      const notebookIdForRAG = notebookId || notebookData?.id
+      let aiResponse: any
+
+      if (notebookIdForRAG) {
+        // Step 1: Search the knowledge base first
+        try {
+          const searchResponse = await fetch(`/api/notebooks/${notebookIdForRAG}/rag/search`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              query: currentInput,
+              limit: 5
+            }),
+          })
+
+          if (searchResponse.ok) {
+            const searchData = await searchResponse.json()
+            
+            // Step 2: If relevant content found, use RAG
+            if (searchData.results && searchData.results.length > 0) {
+              // Update loading message
+              setAiMessages(prev => 
+                prev.map(msg => 
+                  msg.id === loadingMessage.id 
+                    ? { ...msg, content: "📚 Found relevant content, generating response..." }
+                    : msg
+                )
+              )
+
+              const ragResponse = await fetch(`/api/notebooks/${notebookIdForRAG}/rag/query`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  query: currentInput,
+                  includeContext: true
+                }),
+              })
+
+              if (ragResponse.ok) {
+                const ragData = await ragResponse.json()
+                aiResponse = {
+                  id: (Date.now() + 2).toString(),
+                  role: 'ai' as const,
+                  content: ragData.response,
+                  sources: ragData.sources || [],
+                  timestamp: new Date().toISOString(),
+                  usedRAG: true
+                }
+              }
+            }
+          }
+        } catch (ragError) {
+          console.log('RAG search failed, falling back to LLM:', ragError)
+        }
       }
-      setAiMessages(prev => [...prev, aiResponse])
-    }, 1000)
+
+      // Step 3: If no relevant content found or RAG failed, use direct LLM
+      if (!aiResponse) {
+        // Update loading message
+        setAiMessages(prev => 
+          prev.map(msg => 
+            msg.id === loadingMessage.id 
+              ? { ...msg, content: "🤖 Using AI capabilities..." }
+              : msg
+          )
+        )
+
+        // Use a direct LLM response (you can integrate with your preferred LLM service here)
+        const llmResponse = await generateLLMResponse(currentInput)
+        
+        aiResponse = {
+          id: (Date.now() + 2).toString(),
+          role: 'ai' as const,
+          content: llmResponse,
+          timestamp: new Date().toISOString(),
+          usedRAG: false
+        }
+      }
+      
+      // Remove loading message and add AI response
+      setAiMessages(prev => {
+        const filtered = prev.filter(msg => msg.id !== loadingMessage.id)
+        return [...filtered, aiResponse]
+      })
+      
+    } catch (error) {
+      console.error('Error getting AI response:', error)
+      
+      // Remove loading message and add error message
+      setAiMessages(prev => {
+        const filtered = prev.filter(msg => msg.id !== loadingMessage.id)
+        const errorResponse = {
+          id: (Date.now() + 2).toString(),
+          role: 'ai' as const,
+          content: `I apologize, but I encountered an error while processing your question. Please try again.`,
+          isError: true,
+          timestamp: new Date().toISOString()
+        }
+        return [...filtered, errorResponse]
+      })
+    }
+  }
+
+  // Direct LLM response function (fallback when no RAG content)
+  const generateLLMResponse = async (query: string): Promise<string> => {
+    try {
+      // You can integrate with your preferred LLM service here
+      // For now, I'll create a basic response
+      const response = await fetch('/api/chat/llm', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: query,
+          context: "You are a helpful AI assistant for a note-taking application."
+        }),
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        return data.response
+      }
+    } catch (error) {
+      console.error('LLM API error:', error)
+    }
+
+    // Fallback response if LLM API fails
+    return `I understand you're asking about "${query}". While I don't have specific content uploaded to reference, I can help you think through this topic. Could you provide more context or upload relevant documents so I can give you more detailed assistance?`
   }
 
   // File handling for sources
@@ -270,6 +425,155 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
         setSources(prev => [...prev, newSource])
       })
     }
+  }
+
+  // File upload handlers for RAG
+  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const notebookIdForRAG = notebookId || notebookData?.id
+    if (!notebookIdForRAG) {
+      alert('No notebook ID available for upload')
+      return
+    }
+
+    // Add status message
+    const statusMessage = {
+      id: Date.now().toString(),
+      role: 'ai' as const,
+      content: `📄 Processing PDF "${file.name}"... This may take a moment.`,
+      isLoading: true,
+      timestamp: new Date().toISOString()
+    }
+    setAiMessages(prev => [...prev, statusMessage])
+
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const response = await fetch(`/api/notebooks/${notebookIdForRAG}/rag`, {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.statusText}`)
+      }
+
+      const result = await response.json()
+      
+      // Update status message with success
+      setAiMessages(prev => 
+        prev.map(msg => 
+          msg.id === statusMessage.id 
+            ? {
+                ...msg,
+                content: `✅ Successfully processed PDF "${file.name}"! ${result.chunks || 0} chunks added to knowledge base. You can now ask questions about this document.`,
+                isLoading: false
+              }
+            : msg
+        )
+      )
+    } catch (error) {
+      console.error('PDF upload error:', error)
+      
+      // Update status message with error
+      setAiMessages(prev => 
+        prev.map(msg => 
+          msg.id === statusMessage.id 
+            ? {
+                ...msg,
+                content: `❌ Failed to process PDF "${file.name}". Please try again or check the file format.`,
+                isLoading: false,
+                isError: true
+              }
+            : msg
+        )
+      )
+    }
+
+    // Reset file input
+    e.target.value = ''
+  }
+
+  const handleTextUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const notebookIdForRAG = notebookId || notebookData?.id
+    if (!notebookIdForRAG) {
+      alert('No notebook ID available for upload')
+      return
+    }
+
+    // Add status message
+    const statusMessage = {
+      id: Date.now().toString(),
+      role: 'ai' as const,
+      content: `📝 Processing text file "${file.name}"...`,
+      isLoading: true,
+      timestamp: new Date().toISOString()
+    }
+    setAiMessages(prev => [...prev, statusMessage])
+
+    try {
+      const text = await file.text()
+      
+      const response = await fetch(`/api/notebooks/${notebookIdForRAG}/rag/text`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content: text,
+          fileName: file.name,
+          metadata: {
+            filename: file.name,
+            type: file.type || 'text/plain',
+            uploadedAt: new Date().toISOString()
+          }
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.statusText}`)
+      }
+
+      const result = await response.json()
+      
+      // Update status message with success
+      setAiMessages(prev => 
+        prev.map(msg => 
+          msg.id === statusMessage.id 
+            ? {
+                ...msg,
+                content: `✅ Successfully processed text file "${file.name}"! ${result.chunks || 0} chunks added to knowledge base. You can now ask questions about this content.`,
+                isLoading: false
+              }
+            : msg
+        )
+      )
+    } catch (error) {
+      console.error('Text upload error:', error)
+      
+      // Update status message with error
+      setAiMessages(prev => 
+        prev.map(msg => 
+          msg.id === statusMessage.id 
+            ? {
+                ...msg,
+                content: `❌ Failed to process text file "${file.name}". Please try again.`,
+                isLoading: false,
+                isError: true
+              }
+            : msg
+        )
+      )
+    }
+
+    // Reset file input
+    e.target.value = ''
   }
 
   // Insert link functionality
@@ -423,6 +727,72 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
       editorRef.current.innerHTML = content
     }
   }, [notebookData, notebook])
+
+  // RAG management functions
+  const handleClearKnowledgeBase = async () => {
+    const notebookIdForRAG = notebookId || notebookData?.id
+    if (!notebookIdForRAG) return
+
+    if (!confirm('Are you sure you want to clear all uploaded content from this notebook\'s knowledge base?')) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/notebooks/${notebookIdForRAG}/rag`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to clear knowledge base')
+      }
+
+      // Add confirmation message
+      const confirmMessage = {
+        id: Date.now().toString(),
+        role: 'ai' as const,
+        content: "🗑️ Knowledge base cleared successfully. Upload new documents to start asking questions again.",
+        timestamp: new Date().toISOString()
+      }
+      setAiMessages(prev => [...prev, confirmMessage])
+    } catch (error) {
+      console.error('Error clearing knowledge base:', error)
+      alert('Failed to clear knowledge base. Please try again.')
+    }
+  }
+
+  const handleShowRAGStats = async () => {
+    const notebookIdForRAG = notebookId || notebookData?.id
+    if (!notebookIdForRAG) return
+
+    try {
+      const response = await fetch(`/api/notebooks/${notebookIdForRAG}/rag`)
+      
+      if (!response.ok) {
+        throw new Error('Failed to get RAG stats')
+      }
+
+      const stats = await response.json()
+      
+      // Add stats message
+      const statsMessage = {
+        id: Date.now().toString(),
+        role: 'ai' as const,
+        content: `📊 **Knowledge Base Stats:**\n\n• **Documents:** ${stats.totalDocuments || 0}\n• **Text Chunks:** ${stats.totalChunks || 0}\n• **Collection:** ${stats.collectionName || 'Not available'}\n• **Last Updated:** ${stats.lastUpdated ? new Date(stats.lastUpdated).toLocaleString() : 'Never'}`,
+        timestamp: new Date().toISOString()
+      }
+      setAiMessages(prev => [...prev, statsMessage])
+    } catch (error) {
+      console.error('Error getting RAG stats:', error)
+      const errorMessage = {
+        id: Date.now().toString(),
+        role: 'ai' as const,
+        content: "❌ Could not retrieve knowledge base statistics. The knowledge base might be empty or there was a connection error.",
+        isError: true,
+        timestamp: new Date().toISOString()
+      }
+      setAiMessages(prev => [...prev, errorMessage])
+    }
+  }
 
   if (loading) {
     return (
@@ -900,20 +1270,147 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
         {(!isMobile || activeTab === "ai-chat") && (
           <div className="w-full md:w-80 border-l border-gray-200 bg-white flex flex-col">
             <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-indigo-600 to-indigo-800">
-              <h3 className="text-lg font-medium text-white">AI Assistant</h3>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-medium text-white">AI Assistant</h3>
+                  <p className="text-xs text-indigo-100 mt-1">
+                    Upload documents and ask questions about your content
+                  </p>
+                </div>
+                <div className="flex gap-1">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={handleShowRAGStats}
+                    className="text-white hover:bg-indigo-700 h-8 w-8 p-0"
+                    title="Show Knowledge Base Stats"
+                  >
+                    📊
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={handleClearKnowledgeBase}
+                    className="text-white hover:bg-indigo-700 h-8 w-8 p-0"
+                    title="Clear Knowledge Base"
+                  >
+                    🗑️
+                  </Button>
+                </div>
+              </div>
             </div>
             <div className="flex-1 p-4 overflow-y-auto">
               <div className="space-y-4">
                 {aiMessages.map((message) => (
-                  <div key={message.id} className={`${message.role === 'ai' ? 'bg-indigo-50' : 'bg-gray-50'} rounded-lg p-4`}>
+                  <div key={message.id} className={`${
+                    message.role === 'ai' 
+                      ? message.isError 
+                        ? 'bg-red-50 border border-red-200' 
+                        : 'bg-indigo-50' 
+                      : 'bg-gray-50'
+                  } rounded-lg p-4`}>
                     <div className="flex items-start">
-                      <div className={`h-8 w-8 rounded-full ${message.role === 'ai' ? 'bg-gradient-to-r from-indigo-600 to-indigo-800' : 'bg-gray-400'} flex items-center justify-center text-white text-sm mr-3 flex-shrink-0`}>
-                        {message.role === 'ai' ? 'AI' : 'U'}
+                      <div className={`h-8 w-8 rounded-full ${
+                        message.role === 'ai' 
+                          ? message.isError
+                            ? 'bg-red-500'
+                            : 'bg-gradient-to-r from-indigo-600 to-indigo-800' 
+                          : 'bg-gray-400'
+                      } flex items-center justify-center text-white text-sm mr-3 flex-shrink-0`}>
+                        {message.role === 'ai' ? (message.isLoading ? '⏳' : 'AI') : 'U'}
                       </div>
-                      <div>
-                        <p className={message.role === 'ai' ? 'text-indigo-900' : 'text-gray-900'}>
-                          {message.content}
-                        </p>
+                      <div className="flex-1">
+                        {/* RAG/LLM indicator for AI messages */}
+                        {message.role === 'ai' && message.usedRAG !== undefined && (
+                          <div className="mb-2">
+                            <span className={`text-xs px-2 py-1 rounded-full ${
+                              message.usedRAG 
+                                ? 'bg-green-100 text-green-700' 
+                                : 'bg-blue-100 text-blue-700'
+                            }`}>
+                              {message.usedRAG ? '📚 Knowledge Base' : '🤖 AI General'}
+                            </span>
+                          </div>
+                        )}
+                        
+                        <div className={
+                          message.role === 'ai' 
+                            ? message.isError 
+                              ? 'text-red-900' 
+                              : 'text-indigo-900' 
+                            : 'text-gray-900'
+                        }>
+                          {/* Simple markdown-like formatting */}
+                          {message.content.split('\n').map((line, lineIndex) => {
+                            // Handle bold text
+                            if (line.includes('**')) {
+                              const parts = line.split('**')
+                              return (
+                                <p key={lineIndex} className={lineIndex > 0 ? 'mt-2' : ''}>
+                                  {parts.map((part, partIndex) => 
+                                    partIndex % 2 === 1 ? (
+                                      <strong key={partIndex}>{part}</strong>
+                                    ) : (
+                                      <span key={partIndex}>{part}</span>
+                                    )
+                                  )}
+                                </p>
+                              )
+                            }
+                            // Handle bullet points
+                            else if (line.startsWith('• ')) {
+                              return (
+                                <p key={lineIndex} className={`${lineIndex > 0 ? 'mt-1' : ''} ml-2`}>
+                                  {line}
+                                </p>
+                              )
+                            }
+                            // Regular lines
+                            else {
+                              return line.trim() ? (
+                                <p key={lineIndex} className={lineIndex > 0 ? 'mt-2' : ''}>
+                                  {line}
+                                </p>
+                              ) : (
+                                <br key={lineIndex} />
+                              )
+                            }
+                          })}
+                        </div>
+                        
+                        {/* Display sources if available */}
+                        {message.sources && message.sources.length > 0 && (
+                          <div className="mt-3 p-3 bg-white rounded-md border border-indigo-200">
+                            <h4 className="text-sm font-medium text-indigo-800 mb-2">
+                              📚 Sources ({message.sources.length})
+                            </h4>
+                            <div className="space-y-2">
+                              {message.sources.slice(0, 3).map((source, index) => (
+                                <div key={index} className="text-xs text-indigo-700 bg-indigo-50 p-2 rounded border">
+                                  <p className="font-medium">Source {index + 1}:</p>
+                                  <p className="mt-1 line-clamp-2">{source.content.substring(0, 200)}...</p>
+                                  {source.metadata && (
+                                    <p className="mt-1 text-indigo-600">
+                                      {source.metadata.filename || source.metadata.title || 'Document'}
+                                    </p>
+                                  )}
+                                </div>
+                              ))}
+                              {message.sources.length > 3 && (
+                                <p className="text-xs text-indigo-600 font-medium">
+                                  + {message.sources.length - 3} more sources
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Timestamp */}
+                        {message.timestamp && (
+                          <p className="text-xs text-gray-500 mt-2">
+                            {new Date(message.timestamp).toLocaleTimeString()}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -921,17 +1418,75 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
               </div>
             </div>
             <div className="p-4 border-t border-gray-200">
+              {/* Upload section */}
+              <div className="mb-3">
+                <div className="flex gap-2 mb-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => document.getElementById('pdf-upload')?.click()}
+                    className="text-xs px-2 py-1 h-7"
+                  >
+                    📄 Upload PDF
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => document.getElementById('text-upload')?.click()}
+                    className="text-xs px-2 py-1 h-7"
+                  >
+                    📝 Upload Text
+                  </Button>
+                </div>
+                
+                {/* Quick prompts */}
+                <div className="flex flex-wrap gap-1">
+                  {[
+                    "Summarize the content",
+                    "Key points?",
+                    "Explain this topic"
+                  ].map((prompt) => (
+                    <button
+                      key={prompt}
+                      onClick={() => setAiInput(prompt)}
+                      className="text-xs px-2 py-1 bg-indigo-100 text-indigo-700 rounded hover:bg-indigo-200 transition-colors"
+                    >
+                      {prompt}
+                    </button>
+                  ))}
+                </div>
+                
+                {/* Hidden file inputs */}
+                <input
+                  id="pdf-upload"
+                  type="file"
+                  accept=".pdf"
+                  className="hidden"
+                  onChange={handlePdfUpload}
+                />
+                <input
+                  id="text-upload"
+                  type="file"
+                  accept=".txt,.md,.doc,.docx"
+                  className="hidden"
+                  onChange={handleTextUpload}
+                />
+              </div>
+              
+              {/* Chat input */}
               <div className="relative">
                 <Input
                   value={aiInput}
                   onChange={(e) => setAiInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleAiSubmit()}
-                  placeholder="Ask AI about your notes..."
+                  onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleAiSubmit()}
+                  placeholder="Ask AI about your uploaded content..."
                   className="pr-10 bg-gray-50 border-gray-200 rounded-lg"
+                  disabled={!aiInput.trim() && aiMessages.some(msg => msg.isLoading)}
                 />
                 <Button 
                   onClick={handleAiSubmit}
-                  className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md"
+                  disabled={!aiInput.trim() || aiMessages.some(msg => msg.isLoading)}
+                  className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md disabled:opacity-50"
                 >
                   <Send className="h-4 w-4" />
                 </Button>

@@ -16,7 +16,7 @@ class EmbeddingService {
           'Authorization': `Bearer ${this.apiKey}`
         },
         body: JSON.stringify({
-          model: "BAAI/bge-base-en-v1.5",
+          model: "Qwen/Qwen3-Embedding-4B",
           input: text,
           encoding_format: "float"
         })
@@ -43,7 +43,7 @@ class EmbeddingService {
           'Authorization': `Bearer ${this.apiKey}`
         },
         body: JSON.stringify({
-          model: "BAAI/bge-base-en-v1.5",
+          model: "Qwen/Qwen3-Embedding-4B",
           input: texts,
           encoding_format: "float"
         })
