@@ -41,6 +41,7 @@ import { Input } from "@/components/ui/input"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { useLearningSession } from "@/hooks/use-learning-session"
 import Link from "next/link"
+import "@/styles/notebook-editor.css"
 
 interface Cell {
   id: string;
@@ -111,12 +112,17 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
   const [aiInput, setAiInput] = useState("")
   const [fontSize, setFontSize] = useState("14")
   const [fontFamily, setFontFamily] = useState("Inter")
-  const [sources, setSources] = useState<Array<{id: string, name: string, type: string, url?: string}>>([])
+  const [sources, setSources] = useState<Array<{
+    id: string, 
+    name: string, 
+    type: string, 
+    url?: string,
+    status?: 'processing' | 'completed' | 'failed'
+  }>>([])
   const [wordCount, setWordCount] = useState(0)
   const [showShortcuts, setShowShortcuts] = useState(false)
   const isMobile = useIsMobile()
   const editorRef = useRef<HTMLDivElement>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Learning session tracking
   const learningSession = useLearningSession({
@@ -411,24 +417,8 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
     return `I understand you're asking about "${query}". While I don't have specific content uploaded to reference, I can help you think through this topic. Could you provide more context or upload relevant documents so I can give you more detailed assistance?`
   }
 
-  // File handling for sources
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files
-    if (files) {
-      Array.from(files).forEach(file => {
-        const newSource = {
-          id: Date.now().toString(),
-          name: file.name,
-          type: file.type.startsWith('image/') ? 'image' : 'document',
-          url: URL.createObjectURL(file)
-        }
-        setSources(prev => [...prev, newSource])
-      })
-    }
-  }
-
-  // File upload handlers for RAG
-  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // File upload handlers for RAG in Sources panel
+  const handleSourcePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
@@ -438,19 +428,19 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
       return
     }
 
-    // Add status message
-    const statusMessage = {
-      id: Date.now().toString(),
-      role: 'ai' as const,
-      content: `📄 Processing PDF "${file.name}"... This may take a moment.`,
-      isLoading: true,
-      timestamp: new Date().toISOString()
+    // Add source to UI with processing status
+    const sourceId = Date.now().toString()
+    const newSource = {
+      id: sourceId,
+      name: file.name,
+      type: 'pdf',
+      status: 'processing' as const
     }
-    setAiMessages(prev => [...prev, statusMessage])
+    setSources(prev => [...prev, newSource])
 
     try {
       const formData = new FormData()
-      formData.append('file', file)
+      formData.append('files', file)  // Changed from 'file' to 'files'
 
       const response = await fetch(`/api/notebooks/${notebookIdForRAG}/rag`, {
         method: 'POST',
@@ -463,41 +453,51 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
 
       const result = await response.json()
       
-      // Update status message with success
-      setAiMessages(prev => 
-        prev.map(msg => 
-          msg.id === statusMessage.id 
-            ? {
-                ...msg,
-                content: `✅ Successfully processed PDF "${file.name}"! ${result.chunks || 0} chunks added to knowledge base. You can now ask questions about this document.`,
-                isLoading: false
-              }
-            : msg
+      // Update source status to completed
+      setSources(prev => 
+        prev.map(source => 
+          source.id === sourceId 
+            ? { ...source, status: 'completed' as const }
+            : source
         )
       )
+
+      // Add success message to AI chat
+      const successMessage = {
+        id: Date.now().toString(),
+        role: 'ai' as const,
+        content: `✅ Successfully processed PDF "${file.name}"! ${result.chunks || 0} chunks added to knowledge base. You can now ask questions about this document.`,
+        timestamp: new Date().toISOString()
+      }
+      setAiMessages(prev => [...prev, successMessage])
     } catch (error) {
       console.error('PDF upload error:', error)
       
-      // Update status message with error
-      setAiMessages(prev => 
-        prev.map(msg => 
-          msg.id === statusMessage.id 
-            ? {
-                ...msg,
-                content: `❌ Failed to process PDF "${file.name}". Please try again or check the file format.`,
-                isLoading: false,
-                isError: true
-              }
-            : msg
+      // Update source status to failed
+      setSources(prev => 
+        prev.map(source => 
+          source.id === sourceId 
+            ? { ...source, status: 'failed' as const }
+            : source
         )
       )
+
+      // Add error message to AI chat
+      const errorMessage = {
+        id: Date.now().toString(),
+        role: 'ai' as const,
+        content: `❌ Failed to process PDF "${file.name}". Please try again or check the file format.`,
+        isError: true,
+        timestamp: new Date().toISOString()
+      }
+      setAiMessages(prev => [...prev, errorMessage])
     }
 
     // Reset file input
     e.target.value = ''
   }
 
-  const handleTextUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSourceTextUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
@@ -507,15 +507,15 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
       return
     }
 
-    // Add status message
-    const statusMessage = {
-      id: Date.now().toString(),
-      role: 'ai' as const,
-      content: `📝 Processing text file "${file.name}"...`,
-      isLoading: true,
-      timestamp: new Date().toISOString()
+    // Add source to UI with processing status
+    const sourceId = Date.now().toString()
+    const newSource = {
+      id: sourceId,
+      name: file.name,
+      type: 'text',
+      status: 'processing' as const
     }
-    setAiMessages(prev => [...prev, statusMessage])
+    setSources(prev => [...prev, newSource])
 
     try {
       const text = await file.text()
@@ -527,7 +527,6 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
         },
         body: JSON.stringify({
           content: text,
-          fileName: file.name,
           metadata: {
             filename: file.name,
             type: file.type || 'text/plain',
@@ -542,38 +541,76 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
 
       const result = await response.json()
       
-      // Update status message with success
-      setAiMessages(prev => 
-        prev.map(msg => 
-          msg.id === statusMessage.id 
-            ? {
-                ...msg,
-                content: `✅ Successfully processed text file "${file.name}"! ${result.chunks || 0} chunks added to knowledge base. You can now ask questions about this content.`,
-                isLoading: false
-              }
-            : msg
+      // Update source status to completed
+      setSources(prev => 
+        prev.map(source => 
+          source.id === sourceId 
+            ? { ...source, status: 'completed' as const }
+            : source
         )
       )
+
+      // Add success message to AI chat
+      const successMessage = {
+        id: Date.now().toString(),
+        role: 'ai' as const,
+        content: `✅ Successfully processed text file "${file.name}"! ${result.chunks || 0} chunks added to knowledge base. You can now ask questions about this content.`,
+        timestamp: new Date().toISOString()
+      }
+      setAiMessages(prev => [...prev, successMessage])
     } catch (error) {
       console.error('Text upload error:', error)
       
-      // Update status message with error
-      setAiMessages(prev => 
-        prev.map(msg => 
-          msg.id === statusMessage.id 
-            ? {
-                ...msg,
-                content: `❌ Failed to process text file "${file.name}". Please try again.`,
-                isLoading: false,
-                isError: true
-              }
-            : msg
+      // Update source status to failed
+      setSources(prev => 
+        prev.map(source => 
+          source.id === sourceId 
+            ? { ...source, status: 'failed' as const }
+            : source
         )
       )
+
+      // Add error message to AI chat
+      const errorMessage = {
+        id: Date.now().toString(),
+        role: 'ai' as const,
+        content: `❌ Failed to process text file "${file.name}". Please try again.`,
+        isError: true,
+        timestamp: new Date().toISOString()
+      }
+      setAiMessages(prev => [...prev, errorMessage])
     }
 
     // Reset file input
     e.target.value = ''
+  }
+
+  const handleRemoveSource = async (sourceId: string) => {
+    const source = sources.find(s => s.id === sourceId)
+    if (!source) return
+
+    if (!confirm(`Are you sure you want to remove "${source.name}" from the knowledge base?`)) {
+      return
+    }
+
+    try {
+      // Remove from UI immediately
+      setSources(prev => prev.filter(s => s.id !== sourceId))
+
+      // Add info message to AI chat
+      const infoMessage = {
+        id: Date.now().toString(),
+        role: 'ai' as const,
+        content: `🗑️ Removed "${source.name}" from knowledge base. Note: To fully clear all content, use the clear knowledge base button in the chat panel.`,
+        timestamp: new Date().toISOString()
+      }
+      setAiMessages(prev => [...prev, infoMessage])
+    } catch (error) {
+      console.error('Error removing source:', error)
+      // Re-add source if removal failed
+      setSources(prev => [...prev, source])
+      alert('Failed to remove source. Please try again.')
+    }
   }
 
   // Insert link functionality
@@ -840,7 +877,7 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
           <Input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="text-xl font-bold border-0 focus-visible:ring-0 p-0 h-auto bg-transparent max-w-[200px] md:max-w-none"
+            className="text-xl font-bold border-0 focus-visible:ring-0 p-0 h-auto bg-transparent max-w-[200px] md:max-w-none text-black"
           />
         </div>        <div className="flex items-center space-x-2">
           <Button 
@@ -905,19 +942,37 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
         {(!isMobile || activeTab === "sources") && (
           <div className="w-full md:w-64 border-r border-gray-200 bg-white flex flex-col">
             <div className="p-4 border-b border-gray-200">
-              <Button 
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg flex items-center justify-center"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Source
-              </Button>
+              <div className="space-y-2">
+                <Button 
+                  onClick={() => document.getElementById('source-pdf-upload')?.click()}
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg flex items-center justify-center"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Upload PDF
+                </Button>
+                <Button 
+                  onClick={() => document.getElementById('source-text-upload')?.click()}
+                  variant="outline"
+                  className="w-full border-indigo-200 hover:bg-indigo-50 text-indigo-700 rounded-lg flex items-center justify-center"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Upload Text
+                </Button>
+              </div>
+              
+              {/* Hidden file inputs */}
               <input
-                ref={fileInputRef}
+                id="source-pdf-upload"
                 type="file"
-                multiple
-                accept=".pdf,.doc,.docx,.txt,image/*"
-                onChange={handleFileUpload}
+                accept=".pdf"
+                onChange={handleSourcePdfUpload}
+                className="hidden"
+              />
+              <input
+                id="source-text-upload"
+                type="file"
+                accept=".txt,.md,.doc,.docx"
+                onChange={handleSourceTextUpload}
                 className="hidden"
               />
             </div>
@@ -929,18 +984,44 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
                   </div>
                   <h3 className="text-lg font-medium text-gray-900 mb-2">No sources added yet</h3>
                   <p className="text-sm text-gray-500 max-w-xs">
-                    Add PDFs, websites, or text documents to enhance your notes with references.
+                    Upload PDFs or text documents to add them to your knowledge base for AI chat.
                   </p>
                 </div>
               ) : (
                 <div className="space-y-2">
                   {sources.map((source) => (
                     <div key={source.id} className="p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
-                      <div className="flex items-center">
-                        <FileText className="h-4 w-4 text-gray-400 mr-2" />
-                        <span className="text-sm font-medium truncate">{source.name}</span>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center flex-1 min-w-0">
+                          <FileText className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" />
+                          <div className="min-w-0 flex-1">
+                            <span className="text-sm font-medium truncate block">{source.name}</span>
+                            <span className="text-xs text-gray-500 capitalize">{source.type}</span>
+                            {source.status && (
+                              <span className={`text-xs block mt-1 ${
+                                source.status === 'processing' ? 'text-yellow-600' :
+                                source.status === 'completed' ? 'text-green-600' :
+                                'text-red-600'
+                              }`}>
+                                {source.status === 'processing' ? '⏳ Processing...' :
+                                 source.status === 'completed' ? '✅ Ready' :
+                                 '❌ Failed'}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        {source.status === 'completed' && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleRemoveSource(source.id)}
+                            className="text-red-500 hover:text-red-700 h-6 w-6 p-0"
+                            title="Remove from knowledge base"
+                          >
+                            ✕
+                          </Button>
+                        )}
                       </div>
-                      <span className="text-xs text-gray-500 capitalize">{source.type}</span>
                     </div>
                   ))}
                 </div>
@@ -1211,11 +1292,13 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
                 onInput={handleContentChange}
                 onKeyDown={handleKeyDown}
                 data-placeholder="Start typing your notes..."
-                className="rich-editor w-full h-full min-h-[500px] p-6 outline-none text-sm leading-relaxed"
+                className="rich-editor w-full h-full min-h-[500px] p-6 outline-none text-sm leading-relaxed [&>*]:text-black [&_*]:text-black"
                 style={{ 
                   fontFamily: fontFamily, 
                   fontSize: `${fontSize}px`,
-                  lineHeight: '1.6'
+                  lineHeight: '1.6',
+                  color: '#000000 !important',
+                  backgroundColor: '#ffffff'
                 }}
                 suppressContentEditableWarning={true}              />
             </div>
@@ -1418,33 +1501,14 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
               </div>
             </div>
             <div className="p-4 border-t border-gray-200">
-              {/* Upload section */}
+              {/* Quick prompts */}
               <div className="mb-3">
-                <div className="flex gap-2 mb-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => document.getElementById('pdf-upload')?.click()}
-                    className="text-xs px-2 py-1 h-7"
-                  >
-                    📄 Upload PDF
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => document.getElementById('text-upload')?.click()}
-                    className="text-xs px-2 py-1 h-7"
-                  >
-                    📝 Upload Text
-                  </Button>
-                </div>
-                
-                {/* Quick prompts */}
                 <div className="flex flex-wrap gap-1">
                   {[
                     "Summarize the content",
-                    "Key points?",
-                    "Explain this topic"
+                    "Key points?", 
+                    "Explain this topic",
+                    "Show sources"
                   ].map((prompt) => (
                     <button
                       key={prompt}
@@ -1455,22 +1519,6 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
                     </button>
                   ))}
                 </div>
-                
-                {/* Hidden file inputs */}
-                <input
-                  id="pdf-upload"
-                  type="file"
-                  accept=".pdf"
-                  className="hidden"
-                  onChange={handlePdfUpload}
-                />
-                <input
-                  id="text-upload"
-                  type="file"
-                  accept=".txt,.md,.doc,.docx"
-                  className="hidden"
-                  onChange={handleTextUpload}
-                />
               </div>
               
               {/* Chat input */}
@@ -1480,7 +1528,7 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
                   onChange={(e) => setAiInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleAiSubmit()}
                   placeholder="Ask AI about your uploaded content..."
-                  className="pr-10 bg-gray-50 border-gray-200 rounded-lg"
+                  className="pr-10 bg-gray-50 border-gray-200 rounded-lg text-black placeholder-gray-500"
                   disabled={!aiInput.trim() && aiMessages.some(msg => msg.isLoading)}
                 />
                 <Button 
