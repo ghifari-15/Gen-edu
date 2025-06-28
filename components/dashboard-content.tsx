@@ -71,13 +71,6 @@ export function DashboardContent() {
           <LearningProgress />
         </motion.div>
 
-        {/* AI Chat Interface - Enhanced */}
-        <motion.div variants={item} className="lg:col-span-2">
-          <Card className="h-[500px] overflow-hidden shadow-lg border-0 bg-white rounded-2xl">
-            <ChatInterface />
-          </Card>
-        </motion.div>
-
         {/* Recent Activity Section */}
         <motion.div variants={item} className="lg:col-span-2">
           <RecentActivity />

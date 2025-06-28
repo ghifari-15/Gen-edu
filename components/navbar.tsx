@@ -67,15 +67,16 @@ export function Navbar() {
                 <NavButton href="/analytics" active={pathname === "/analytics"}>
                   Analytics
                 </NavButton>
+                <NavButton href="/chat" active={pathname === "/chat"}>
+                  Chat
+                </NavButton>
                 <NavButton href="/notebook" active={pathname.startsWith("/notebook") && pathname !== "/notebook/create"}>
                   Notebook
                 </NavButton>
                 <NavButton href="/quiz" active={pathname.startsWith("/quiz") && pathname !== "/quiz/create"}>
                   Quiz
                 </NavButton>
-                <NavButton href="/chat" active={pathname === "/chat"}>
-                  Chat
-                </NavButton>
+                
               </div>              {/* User Section */}
               <div className="flex items-center space-x-4">
                 <Button variant="ghost" size="icon" className="text-gray-500">
