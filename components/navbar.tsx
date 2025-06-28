@@ -67,11 +67,14 @@ export function Navbar() {
                 <NavButton href="/analytics" active={pathname === "/analytics"}>
                   Analytics
                 </NavButton>
-                <NavButton href="/notebook" active={pathname.startsWith("/notebook")}>
+                <NavButton href="/notebook" active={pathname.startsWith("/notebook") && pathname !== "/notebook/create"}>
                   Notebook
                 </NavButton>
                 <NavButton href="/quiz" active={pathname.startsWith("/quiz") && pathname !== "/quiz/create"}>
                   Quiz
+                </NavButton>
+                <NavButton href="/chat" active={pathname === "/chat"}>
+                  Chat
                 </NavButton>
               </div>              {/* User Section */}
               <div className="flex items-center space-x-4">
@@ -247,14 +250,12 @@ export function Navbar() {
           />
 
           {/* Center Chat Button */}
-          <div className="-mt-8" onClick={toggleChat}>
-            <Button
-              className="rounded-full w-16 h-16 shadow-lg bg-indigo-950 text-white hover:bg-indigo-900"
-              size="icon"
-            >
-              <MessageCircle className="h-7 w-7" />
-            </Button>
-          </div>
+          <MobileNavButton
+            href="/chat"
+            active={pathname === "/chat"}
+            icon={<MessageCircle className="h-7 w-7" />}
+            label="Chat"
+          />
 
           <MobileNavButton
             href="/quiz"

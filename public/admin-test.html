@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Login Test</title>
+</head>
+<body>
+    <h1>Admin Login Test Page</h1>
+    
+    <div>
+        <h2>Login Form</h2>
+        <form id="loginForm">
+            <div>
+                <label>Email:</label>
+                <input type="email" id="email" value="admin@genedu.com">
+            </div>
+            <div>
+                <label>Password:</label>
+                <input type="password" id="password" value="admin123">
+            </div>
+            <button type="submit">Login</button>
+        </form>
+    </div>
+    
+    <div>
+        <h2>Test Results</h2>
+        <div id="results"></div>
+    </div>
+    
+    <div>
+        <h2>Current Cookies</h2>
+        <div id="cookies"></div>
+    </div>
+    
+    <script>
+        function updateCookies() {
+            document.getElementById('cookies').innerHTML = '<pre>' + document.cookie + '</pre>';
+        }
+        
+        function log(message) {
+            const results = document.getElementById('results');
+            results.innerHTML += '<div>' + new Date().toLocaleTimeString() + ': ' + message + '</div>';
+        }
+        
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            log('Starting login test...');
+            
+            try {
+                const response = await fetch('/api/auth/admin/login-mock', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({ email, password })
+                });
+                
+                log('Response status: ' + response.status);
+                
+                const data = await response.json();
+                log('Response data: ' + JSON.stringify(data, null, 2));
+                
+                if (data.success) {
+                    log('Login successful!');
+                    updateCookies();
+                    
+                    // Test auth verification
+                    setTimeout(async () => {
+                        log('Testing auth verification...');
+                        const authResponse = await fetch('/api/auth/admin/me-mock', {
+                            method: 'GET',
+                            credentials: 'include'
+                        });
+                        
+                        log('Auth verification status: ' + authResponse.status);
+                        const authData = await authResponse.json();
+                        log('Auth verification data: ' + JSON.stringify(authData, null, 2));
+                        
+                        if (authData.success) {
+                            log('✅ Authentication working! Redirecting to admin...');
+                            setTimeout(() => {
+                                window.location.href = '/admin';
+                            }, 1000);
+                        } else {
+                            log('❌ Authentication failed!');
+                        }
+                    }, 1000);
+                } else {
+                    log('Login failed: ' + data.message);
+                }
+            } catch (error) {
+                log('Error: ' + error.message);
+            }
+        });
+        
+        // Update cookies on page load
+        updateCookies();
+    </script>
+</body>
+</html>

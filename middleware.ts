@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 // Protected routes yang memerlukan authentication
 const protectedRoutes = [
-  '/',
+  '/dashboard',
   '/notebook',
   '/quiz',
   '/profile',
@@ -12,6 +12,7 @@ const protectedRoutes = [
 
 // Public routes yang bisa diakses tanpa authentication
 const publicRoutes = [
+  '/',
   '/login',
   '/register',
   '/onboarding',
@@ -47,6 +48,37 @@ function verifyTokenSimple(token: string): any {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get('auth-token')?.value;
+  const adminToken = request.cookies.get('admin-token')?.value;
+  
+  // Debug logging
+  console.log('Middleware - Path:', pathname, 'Token exists:', !!token, 'Admin token exists:', !!adminToken);
+
+  // Admin routes should be handled separately
+  if (pathname.startsWith('/admin')) {
+    // Allow admin login page without token
+    if (pathname === '/admin/login') {
+      return NextResponse.next();
+    }
+    
+    // For other admin routes, check admin token
+    if (!adminToken) {
+      return NextResponse.redirect(new URL('/admin/login', request.url));
+    }
+    
+    const adminPayload = verifyTokenSimple(adminToken);
+    if (!adminPayload || adminPayload.role !== 'admin') {
+      return NextResponse.redirect(new URL('/admin/login', request.url));
+    }
+    
+    // Admin authenticated, proceed
+    return NextResponse.next();
+  }
+
+  // Temporarily bypass middleware for register route to debug
+  if (pathname === '/register') {
+    console.log('Bypassing middleware for /register');
+    return NextResponse.next();
+  }
 
   // Allow API routes to handle their own authentication
   if (pathname.startsWith('/api/')) {
@@ -74,7 +106,14 @@ export async function middleware(request: NextRequest) {
     if (token && isAuthRoute) {
       const payload = verifyTokenSimple(token);
       if (payload) {
+        console.log('Redirecting authenticated user from auth route:', pathname);
         return NextResponse.redirect(new URL('/', request.url));
+      } else {
+        // Invalid token, clear it and allow access to auth routes
+        console.log('Invalid token found, clearing cookie for auth route:', pathname);
+        const response = NextResponse.next();
+        response.cookies.delete('auth-token');
+        return response;
       }
     }
     return NextResponse.next();

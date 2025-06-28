@@ -7,13 +7,31 @@ import { motion } from "framer-motion"
 
 export function StudentVolume() {
   return (
-    <Card className="shadow-md border border-gray-200 h-full bg-white">
+    <Card className="shadow-lg border-0 bg-gradient-to-br from-emerald-500 to-teal-600 h-full text-white">
       <CardContent className="p-6">
         <div className="flex justify-between items-start">
-          <h3 className="text-lg font-medium text-gray-900">Learning Progress</h3>
-          <Button variant="ghost" size="icon" className="text-gray-500 -mt-2 -mr-2">
+          <div className="flex items-center space-x-2">
+            <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+              <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z"/>
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold">Learning Progress</h3>
+          </div>
+          <Button variant="ghost" size="icon" className="text-white/70 hover:text-white hover:bg-white/10 -mt-2 -mr-2">
             <MoreHorizontal className="h-5 w-5" />
           </Button>
+        </div>
+
+        <div className="mt-6 grid grid-cols-2 gap-4">
+          <div className="text-center">
+            <div className="text-2xl font-bold">85%</div>
+            <div className="text-white/80 text-sm mt-1">Completion Rate</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold">12</div>
+            <div className="text-white/80 text-sm mt-1">Subjects</div>
+          </div>
         </div>
 
         <motion.div
@@ -22,30 +40,24 @@ export function StudentVolume() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7 }}
         >
-          <div className="relative w-36 md:w-48 h-36 md:h-48">
+          <div className="relative w-32 h-32">
             {/* Background circle */}
-            <div className="absolute inset-0 rounded-full bg-gray-100"></div>
+            <div className="absolute inset-0 rounded-full bg-white/20"></div>
 
             {/* Progress circle with gradient */}
             <svg viewBox="0 0 100 100" className="absolute inset-0 transform -rotate-90">
-              <defs>
-                <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#818cf8" />
-                  <stop offset="100%" stopColor="#4f46e5" />
-                </linearGradient>
-              </defs>
-              <circle cx="50" cy="50" r="40" fill="none" stroke="#f3f4f6" strokeWidth="8" />
+              <circle cx="50" cy="50" r="35" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="6" />
               <motion.circle
                 cx="50"
                 cy="50"
-                r="40"
+                r="35"
                 fill="none"
-                stroke="url(#progressGradient)"
-                strokeWidth="8"
+                stroke="rgba(255,255,255,0.9)"
+                strokeWidth="6"
                 strokeLinecap="round"
-                strokeDasharray="251.2"
-                initial={{ strokeDashoffset: 251.2 }}
-                animate={{ strokeDashoffset: 251.2 * (1 - 0.7) }}
+                strokeDasharray="219.8"
+                initial={{ strokeDashoffset: 219.8 }}
+                animate={{ strokeDashoffset: 219.8 * (1 - 0.85) }}
                 transition={{ duration: 1.5, ease: "easeOut" }}
               />
             </svg>
@@ -58,10 +70,10 @@ export function StudentVolume() {
                 transition={{ duration: 0.8, delay: 0.5 }}
                 className="text-center"
               >
-                <span className="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 to-indigo-700">
+                <span className="text-2xl md:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 to-indigo-700">
                   70%
                 </span>
-                <div className="text-sm text-gray-500 mt-1">Completion</div>
+                <div className="text-xs text-gray-500">Completion</div>
               </motion.div>
             </div>
           </div>

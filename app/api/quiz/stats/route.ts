@@ -70,11 +70,12 @@ export async function GET(request: NextRequest) {
     const monthlyAttempts = recentActivities.filter((activity: any) =>
       activity.timestamp >= oneMonthAgo &&
       activity.type === 'quiz_completed'
-    ).length    // Calculate completion rate and total attempts from actual quiz data
+    ).length
+
+    // Calculate completion rate and total attempts from actual quiz data
     const totalAttempts = allQuizAttempts.length
     const totalScore = allQuizAttempts.reduce((sum: number, attempt: any) => sum + (attempt.attempt.percentage || 0), 0)
     const overallCompletionRate = totalAttempts > 0 ? Math.round(totalScore / totalAttempts) : 0
-    const averageScore = totalAttempts > 0 ? Math.round(totalScore / totalAttempts) : 0
 
     console.log('Quiz Stats Debug:', {
       totalQuizzes,
@@ -113,7 +114,7 @@ export async function GET(request: NextRequest) {
 
     const previousDayAttempts = Math.max(1, dailyAttempts - 1) // Mock previous day data
     const dailyGrowth = dailyAttempts > 0 ?
-          Math.round(((dailyAttempts - previousDayAttempts) / previousDayAttempts) * 100) : 0
+      Math.round(((dailyAttempts - previousDayAttempts) / previousDayAttempts) * 100) : 0
 
     return NextResponse.json({
       success: true,
@@ -121,7 +122,6 @@ export async function GET(request: NextRequest) {
         totalQuizzes,
         totalAttempts,
         completionRate: overallCompletionRate,
-        averageScore,
         chartData,
         growth: {
           daily: dailyGrowth,

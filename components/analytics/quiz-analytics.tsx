@@ -71,14 +71,25 @@ export function QuizAnalytics({ timeRange }: QuizAnalyticsProps) {
           if (statsData.success) {
             setStats(statsData.stats)
           }
-        }
-
-        if (recentResponse.ok) {
+        }        if (recentResponse.ok) {
           const recentData = await recentResponse.json()
           if (recentData.success) {
-            setRecentQuizzes(recentData.results)
+            // Deduplicate quizzes based on id and timestamp to prevent duplicate keys
+            const uniqueQuizzes = recentData.results.reduce((acc: QuizData[], quiz: QuizData) => {
+              const existingIndex = acc.findIndex(q => q.id === quiz.id && q.timestamp === quiz.timestamp)
+              if (existingIndex === -1) {
+                acc.push(quiz)
+              } else {
+                // If duplicate found, keep the one with more recent timestamp or higher score
+                if (!quiz.timestamp || quiz.timestamp > acc[existingIndex].timestamp || quiz.score > acc[existingIndex].score) {
+                  acc[existingIndex] = quiz
+                }
+              }
+              return acc
+            }, [])
+              setRecentQuizzes(uniqueQuizzes)
             
-            // Calculate score distribution from recent results
+            // Calculate score distribution from unique recent results
             const distribution = [
               { range: "90-100%", count: 0, color: "bg-green-500" },
               { range: "80-89%", count: 0, color: "bg-lime-500" },
@@ -87,7 +98,7 @@ export function QuizAnalytics({ timeRange }: QuizAnalyticsProps) {
               { range: "0-59%", count: 0, color: "bg-red-500" },
             ]
             
-            recentData.results.forEach((quiz: QuizData) => {
+            uniqueQuizzes.forEach((quiz: QuizData) => {
               if (quiz.score >= 90) distribution[0].count++
               else if (quiz.score >= 80) distribution[1].count++
               else if (quiz.score >= 70) distribution[2].count++
@@ -273,10 +284,9 @@ export function QuizAnalytics({ timeRange }: QuizAnalyticsProps) {
             <div className="text-center py-8 text-gray-500">Loading quiz results...</div>
           ) : recentQuizzes.length === 0 ? (
             <div className="text-center py-8 text-gray-500">No quiz results yet</div>
-          ) : (
-            recentQuizzes.map((quiz, index) => (
+          ) : (            recentQuizzes.map((quiz, index) => (
               <motion.div
-                key={quiz.id}
+                key={`${quiz.id}-${index}-${quiz.timestamp || Date.now()}`}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, delay: index * 0.05 }}

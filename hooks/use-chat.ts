@@ -16,7 +16,7 @@ export interface UseChatReturn {
   isLoading: boolean
   isStreaming: boolean
   threadId: string | null
-  sendMessage: (message: string, useReasoning?: boolean) => Promise<void>
+  sendMessage: (message: string, useReasoning?: boolean, useContext?: boolean) => Promise<void>
   clearChat: () => void
   loadThread: (threadId: string) => Promise<void>
 }
@@ -48,8 +48,7 @@ export function useChat(): UseChatReturn {
   const [isStreaming, setIsStreaming] = useState(false)
   const [threadId, setThreadId] = useState<string | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
-
-  const sendMessage = useCallback(async (message: string, useReasoning = false) => {
+  const sendMessage = useCallback(async (message: string, useReasoning = false, useContext = true) => {
     if (!message.trim() || isLoading || isStreaming) return
 
     const userMessage: ChatMessage = {
@@ -84,7 +83,48 @@ export function useChat(): UseChatReturn {
 
       abortControllerRef.current = new AbortController()
 
-      const response = await fetch('/api/chat', {
+      // Try RAG system first for better knowledge-based responses
+      let response
+      try {
+        response = await fetch('/api/rag/query', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            query: message,
+            limit: 5
+          }),
+          signal: abortControllerRef.current.signal
+        })
+
+        if (response.ok) {
+          const ragData = await response.json()
+          if (ragData.success && ragData.answer) {
+            // Update AI message with RAG response
+            setMessages(prev => prev.map(msg => 
+              msg.id === aiMessageId 
+                ? { 
+                    ...msg, 
+                    text: ragData.answer,
+                    isStreaming: false,
+                    thinking: ragData.confidence > 0 
+                      ? `Retrieved from ${ragData.relevantKnowledge?.length || 0} knowledge sources with ${Math.round(ragData.confidence)}% confidence`
+                      : undefined
+                  }
+                : msg
+            ))
+            setIsLoading(false)
+            setIsStreaming(false)
+            return
+          }
+        }
+      } catch (ragError) {
+        console.log('RAG failed, falling back to chat API:', ragError)
+      }
+
+      // Fallback to original chat API
+      response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -92,13 +132,32 @@ export function useChat(): UseChatReturn {
         body: JSON.stringify({
           message,
           threadId,
-          useReasoning
+          useReasoning,
+          useContext
         }),
         signal: abortControllerRef.current.signal
       })
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        let errorMessage = 'Sorry, I encountered an error. Please try again.'
+        
+        try {
+          const errorData = await response.json()
+          if (errorData.error) {
+            errorMessage = errorData.error
+          }
+        } catch {
+          // If we can't parse the error response, use the status-based message
+          if (response.status === 401) {
+            errorMessage = 'Authentication error. Please log in again.'
+          } else if (response.status === 429) {
+            errorMessage = 'AI service is busy. Please try again in a moment.'
+          } else if (response.status === 503) {
+            errorMessage = 'AI service is temporarily unavailable. Please try again later.'
+          }
+        }
+        
+        throw new Error(errorMessage)
       }
 
       const reader = response.body?.getReader()
@@ -213,12 +272,17 @@ export function useChat(): UseChatReturn {
             }
           }
         }
-      }
-    } catch (error: any) {
+      }    } catch (error: any) {
       console.error('Chat error:', error)
       
       if (error.name === 'AbortError') {
         return // Request was cancelled
+      }
+
+      // Get error message from the error object
+      let errorMessage = 'Sorry, I encountered an error. Please try again.'
+      if (error.message && typeof error.message === 'string') {
+        errorMessage = error.message
       }
 
       // Show error message
@@ -226,7 +290,7 @@ export function useChat(): UseChatReturn {
         msg.id === aiMessageId 
           ? { 
               ...msg, 
-              text: 'Sorry, I encountered an error. Please try again.',
+              text: errorMessage,
               isStreaming: false 
             }
           : msg
