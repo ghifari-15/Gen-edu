@@ -1,6 +1,6 @@
 "use client"
 
-import { BrainCircuit, Bell, Settings, Home, Book, BarChart2, MessageCircle, LogOut, User, ChevronDown } from "lucide-react"
+import { BrainCircuit, Bell, Settings, Home, Book, BarChart2, MessageCircle, LogOut, User, ChevronDown, ChartArea } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { motion } from "framer-motion"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -246,10 +246,10 @@ export function Navbar() {
           />
 
           <MobileNavButton
-            href="/settings"
-            active={pathname.startsWith("/settings")}
-            icon={<Settings className="h-6 w-6" />}
-            label="Settings"
+            href="/analytics"
+            active={pathname.startsWith("/analytics")}
+            icon={<ChartArea className="h-6 w-6" />}
+            label="Analytics"
           />
         </div>
       </div>

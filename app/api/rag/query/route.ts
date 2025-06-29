@@ -5,7 +5,7 @@ export async function POST(request: NextRequest) {
   let ragService: RAGService | null = null
   
   try {
-    const { query, question, limit = 5, stream = false } = await request.json()
+    const { query, question, limit = 5, stream = false, includeMemory = true } = await request.json()
     const userQuery = query || question
 
     if (!userQuery || typeof userQuery !== 'string') {
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
       const readableStream = new ReadableStream({
         async start(controller) {
           try {
-            for await (const data of ragService!.queryRAGStream(userQuery, limit)) {
+            for await (const data of ragService!.queryRAGStream(userQuery, limit, { includeMemory })) {
               if (data.sources && data.confidence !== undefined) {
                 // Initial metadata
                 sources = data.sources
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Handle non-streaming requests (legacy)
-    const result = await ragService.queryRAG(userQuery, limit)
+    const result = await ragService.queryRAG(userQuery, limit, { includeMemory })
 
     return NextResponse.json({
       success: true,
@@ -100,6 +100,55 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: false,
       message: 'Failed to process your question'
+    }, { status: 500 })
+  } finally {
+    if (ragService) {
+      await ragService.close()
+    }
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  let ragService: RAGService | null = null
+  
+  try {
+    ragService = new RAGService()
+    ragService.clearMemory()
+    
+    return NextResponse.json({
+      success: true,
+      message: 'Conversation memory cleared successfully'
+    })
+  } catch (error) {
+    console.error('Error clearing memory:', error)
+    return NextResponse.json({
+      success: false,
+      message: 'Failed to clear memory'
+    }, { status: 500 })
+  } finally {
+    if (ragService) {
+      await ragService.close()
+    }
+  }
+}
+
+export async function GET(request: NextRequest) {
+  let ragService: RAGService | null = null
+  
+  try {
+    ragService = new RAGService()
+    const memory = ragService.getMemory()
+    
+    return NextResponse.json({
+      success: true,
+      memory: memory,
+      count: memory.length
+    })
+  } catch (error) {
+    console.error('Error getting memory:', error)
+    return NextResponse.json({
+      success: false,
+      message: 'Failed to get memory'
     }, { status: 500 })
   } finally {
     if (ragService) {

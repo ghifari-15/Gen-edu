@@ -88,6 +88,7 @@ export function ChatInterface({ isFullScreen = false }: { isFullScreen?: boolean
   const [input, setInput] = useState("")
   const [useReasoning, setUseReasoning] = useState(false)
   const [useContext, setUseContext] = useState(false)
+  const [useMemory, setUseMemory] = useState(true)
   const [showContextInfo, setShowContextInfo] = useState(false)
   const [contextSummary, setContextSummary] = useState<ContextSummary | null>(null)
   const [recentQuizzes, setRecentQuizzes] = useState<RecentQuiz[]>([])
@@ -148,6 +149,17 @@ export function ChatInterface({ isFullScreen = false }: { isFullScreen?: boolean
     }
   }
 
+  const clearMemory = async () => {
+    try {
+      await fetch('/api/rag/query', {
+        method: 'DELETE'
+      })
+      console.log('Memory cleared successfully')
+    } catch (error) {
+      console.error('Failed to clear memory:', error)
+    }
+  }
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
@@ -197,6 +209,17 @@ export function ChatInterface({ isFullScreen = false }: { isFullScreen?: boolean
             >
               <Database className="h-3 w-3 mr-1" />
               {useContext ? 'Context' : 'No Context'}
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearMemory}
+              className="text-white/80 hover:text-white hover:bg-white/10"
+              title="Clear conversation memory"
+            >
+              <Target className="h-3 w-3 mr-1" />
+              Memory
             </Button>
 
             <Button
@@ -263,6 +286,15 @@ export function ChatInterface({ isFullScreen = false }: { isFullScreen?: boolean
                 >
                   <Database className="h-4 w-4 mr-2 inline" />
                   Context
+                </button>
+
+                <button
+                  onClick={clearMemory}
+                  className="px-4 py-2 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all duration-200"
+                  title="Clear conversation memory"
+                >
+                  <Target className="h-4 w-4 mr-2 inline" />
+                  Memory
                 </button>
               </div>
 
@@ -536,28 +568,36 @@ export function ChatInterface({ isFullScreen = false }: { isFullScreen?: boolean
           </div>
           
           {/* Mobile mode buttons */}
-          <div className="flex sm:hidden items-center justify-center space-x-3 mt-4 pt-4 border-t border-gray-100">
+          <div className="flex sm:hidden items-center justify-center space-x-2 mt-4 pt-4 border-t border-gray-100">
             <button
               onClick={() => setUseReasoning(!useReasoning)}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+              className={`px-3 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
                 useReasoning 
                   ? 'bg-purple-600 text-white shadow-md' 
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              <Brain className="h-4 w-4 mr-2 inline" />
+              <Brain className="h-4 w-4 mr-1 inline" />
               Reasoning
             </button>
             <button
               onClick={() => setUseContext(!useContext)}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+              className={`px-3 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
                 useContext 
                   ? 'bg-blue-600 text-white shadow-md' 
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              <Database className="h-4 w-4 mr-2 inline" />
+              <Database className="h-4 w-4 mr-1 inline" />
               Context
+            </button>
+            <button
+              onClick={clearMemory}
+              className="px-3 py-2 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all duration-200"
+              title="Clear memory"
+            >
+              <Target className="h-4 w-4 mr-1 inline" />
+              Memory
             </button>
           </div>
           

@@ -12,9 +12,24 @@ export interface RAGResult {
   confidence: number
 }
 
+export interface ConversationMemory {
+  question: string
+  answer: string
+  timestamp: Date
+  sources?: any[]
+  confidence?: number
+}
+
+export interface RAGOptions {
+  includeMemory?: boolean
+  memoryLimit?: number
+}
+
 class RAGService {
   private vectorDB: VectorDatabase
   private embeddingService: EmbeddingService
+  private conversationMemory: ConversationMemory[] = []
+  private maxMemorySize: number = 10 // Maximum number of conversations to remember
 
   constructor() {
     this.vectorDB = new VectorDatabase()
@@ -60,7 +75,9 @@ class RAGService {
     }
   }
 
-  async queryRAG(question: string, limit: number = 5): Promise<RAGResult> {
+  async queryRAG(question: string, limit: number = 5, options: RAGOptions = {}): Promise<RAGResult> {
+    const { includeMemory = true } = options
+    
     try {
       // Generate embedding for the question
       const queryEmbedding = await this.embeddingService.generateEmbedding(question)
@@ -91,7 +108,13 @@ class RAGService {
             similarity: 0.5 // Default similarity for text search
           }))
 
-          const answer = await this.generateAnswer(question, textResults)
+          const answer = await this.generateAnswer(question, textResults, includeMemory)
+          
+          // Add to memory
+          if (includeMemory) {
+            this.addToMemory(question, answer, sources, 50)
+          }
+          
           return {
             answer,
             sources,
@@ -101,23 +124,38 @@ class RAGService {
         
         // If it's a basic greeting, respond naturally without mentioning knowledge base
         if (isBasicGreeting) {
+          const answer = await this.generateAnswer(question, [], includeMemory)
+          
+          // Add to memory
+          if (includeMemory) {
+            this.addToMemory(question, answer, [], 80)
+          }
+          
           return {
-            answer: await this.generateAnswer(question, []), // This will use the LLM for basic responses
+            answer,
             sources: [],
             confidence: 80 // High confidence for basic greetings
           }
         }
         
         // For specific questions that need knowledge base
-        return {
-          answer: `Maaf, saya tidak menemukan informasi spesifik untuk pertanyaan Anda di knowledge base saat ini. 
+        const fallbackAnswer = `Maaf, saya tidak menemukan informasi spesifik untuk pertanyaan Anda di knowledge base saat ini. 
 
 Bisakah Anda:
+
 • Mencoba kata kunci yang berbeda?
 • Memberikan lebih detail tentang topik yang Anda tanyakan?
 • Atau mungkin saya bisa membantu dengan topik pembelajaran lainnya?
 
-Saya di sini untuk mendukung perjalanan belajar Anda! Ada yang bisa saya bantu hari ini? 😊`,
+Saya di sini untuk mendukung perjalanan belajar Anda! Ada yang bisa saya bantu hari ini? 😊`
+        
+        // Add to memory
+        if (includeMemory) {
+          this.addToMemory(question, fallbackAnswer, [], 0)
+        }
+        
+        return {
+          answer: fallbackAnswer,
           sources: [],
           confidence: 0
         }
@@ -132,8 +170,13 @@ Saya di sini untuk mendukung perjalanan belajar Anda! Ada yang bisa saya bantu h
       }))
 
       // Generate answer based on retrieved context
-      const answer = await this.generateAnswer(question, similarDocs)
+      const answer = await this.generateAnswer(question, similarDocs, includeMemory)
       const confidence = this.calculateConfidence(similarDocs)
+
+      // Add to memory
+      if (includeMemory) {
+        this.addToMemory(question, answer, sources, confidence)
+      }
 
       return {
         answer,
@@ -153,12 +196,14 @@ Saya di sini untuk mendukung perjalanan belajar Anda! Ada yang bisa saya bantu h
   /**
    * Stream RAG query - returns an async generator that yields chunks of the response
    */
-  async* queryRAGStream(question: string, limit: number = 5): AsyncGenerator<{
+  async* queryRAGStream(question: string, limit: number = 5, options: RAGOptions = {}): AsyncGenerator<{
     chunk: string;
     sources?: any[];
     confidence?: number;
     isComplete?: boolean;
   }, void, unknown> {
+    const { includeMemory = true } = options
+    
     try {
       // Generate embedding for the question
       const queryEmbedding = await this.embeddingService.generateEmbedding(question)
@@ -178,6 +223,7 @@ Saya di sini untuk mendukung perjalanan belajar Anda! Ada yang bisa saya bantu h
       
       let docs = similarDocs
       let confidence = 0
+      let answer = ''
       
       if (similarDocs.length === 0) {
         // Check if it's a basic greeting or casual question
@@ -193,15 +239,23 @@ Saya di sini untuk mendukung perjalanan belajar Anda! Ada yang bisa saya bantu h
           confidence = 80 // High confidence for basic greetings
         } else {
           // No relevant docs found and not a greeting
-          yield {
-            chunk: `Maaf, saya tidak menemukan informasi spesifik untuk pertanyaan Anda di knowledge base saat ini. 
+          const fallbackAnswer = `Maaf, saya tidak menemukan informasi spesifik untuk pertanyaan Anda di knowledge base saat ini. 
 
 Bisakah Anda:
+
 • Mencoba kata kunci yang berbeda?
 • Memberikan lebih detail tentang topik yang Anda tanyakan?
 • Atau mungkin saya bisa membantu dengan topik pembelajaran lainnya?
 
-Saya di sini untuk mendukung perjalanan belajar Anda! Ada yang bisa saya bantu hari ini? 😊`,
+Saya di sini untuk mendukung perjalanan belajar Anda! Ada yang bisa saya bantu hari ini? 😊`
+          
+          // Add to memory
+          if (includeMemory) {
+            this.addToMemory(question, fallbackAnswer, [], 0)
+          }
+          
+          yield {
+            chunk: fallbackAnswer,
             sources: [],
             confidence: 0,
             isComplete: true
@@ -229,11 +283,17 @@ Saya di sini untuk mendukung perjalanan belajar Anda! Ada yang bisa saya bantu h
       }
       
       // Stream the answer
-      for await (const chunk of this.generateStreamingAnswer(question, docs)) {
+      for await (const chunk of this.generateStreamingAnswer(question, docs, includeMemory)) {
+        answer += chunk
         yield {
           chunk,
           isComplete: false
         }
+      }
+      
+      // Add to memory
+      if (includeMemory) {
+        this.addToMemory(question, answer, sources, confidence)
       }
       
       // Yield completion signal
@@ -254,7 +314,7 @@ Saya di sini untuk mendukung perjalanan belajar Anda! Ada yang bisa saya bantu h
     }
   }
 
-  private async generateAnswer(question: string, docs: any[]): Promise<string> {
+  private async generateAnswer(question: string, docs: any[], includeMemory: boolean = true): Promise<string> {
     // Get current date and time for real-time context
     const currentDate = new Date()
     const dateString = currentDate.toLocaleDateString('id-ID', { 
@@ -276,17 +336,24 @@ Saya di sini untuk mendukung perjalanan belajar Anda! Ada yang bisa saya bantu h
         ).join('\n\n---\n\n')
       : ''
 
+    // Get conversation memory context
+    const memoryContext = includeMemory ? this.getConversationContext() : ''
+
     // Create comprehensive system prompt
     const systemPrompt = `You are GenEdu Agent, a friendly and intelligent AI learning assistant for the GenEdu educational platform.
 
 CURRENT DATE & TIME: ${dateString}, pukul ${timeString} WIB
 
-CORE PERSONALITY:
+${memoryContext ? `CONVERSATION HISTORY:
+${memoryContext}
+
+` : ''}CORE PERSONALITY:
 - Warm, helpful, and encouraging learning companion
 - Respond naturally to greetings (e.g., "Halo! Ada yang bisa saya bantu dengan pembelajaran Anda hari ini?")
 - Always maintain a positive, patient, and educational tone
 - Adapt your communication style to match the user (formal/informal, Indonesian/English)
 - Be conversational and supportive while being educational
+- Reference previous conversations when relevant to provide continuity
 
 KNOWLEDGE BASE CONTEXT:
 ${docs.length > 0 ? `✅ Found ${docs.length} relevant document(s) from the knowledge base` : '⚠️ No specific documents found in knowledge base'}
@@ -299,17 +366,31 @@ RESPONSE INSTRUCTIONS:
 - Answer in the same language as the question (Indonesian/English)
 - Be encouraging about learning and studying
 - If you're unsure, admit it honestly but still try to be helpful
+- Use conversation history to provide personalized and contextual responses
+- Reference previous topics when relevant to show understanding and continuity
 
 CONTEXT HANDLING:
 - When context is available: Reference specific materials and provide detailed explanations
 - When context is limited: Provide general knowledge while noting limitations
 - When no context: Still be helpful with general educational support and guidance
 - Never refuse to answer due to lack of context - always try to assist in some way
+- Use conversation history to understand follow-up questions and provide continuity
 
-FORMAT:
+FORMAT GUIDELINES:
 - Keep responses clear and well-structured
-- Use bullet points or numbered lists when helpful
-- Include encouraging remarks about learning progress when appropriate`
+- Use bullet points (•) with proper spacing - always add blank lines before lists
+- Put each bullet point on its own line for better readability
+- Use numbered lists when showing steps or sequential information
+- Include encouraging remarks about learning progress when appropriate
+- When creating lists, format them like this:
+
+Contoh format yang benar:
+
+• Item pertama
+• Item kedua  
+• Item ketiga
+
+Bukan seperti ini: • Item1 • Item2 • Item3`
 
     // Create user prompt with context
     const userPrompt = docs.length > 0 
@@ -367,6 +448,7 @@ No specific context was found in the knowledge base for this question. Please pr
         return `Halo! Senang bertemu dengan Anda. Saya GenEdu Agent, asisten pembelajaran AI yang siap membantu Anda belajar! 
 
 Saya bisa membantu dengan:
+
 • Menjelaskan konsep-konsep pembelajaran
 • Menjawab pertanyaan akademik
 • Memberikan tips belajar
@@ -378,6 +460,7 @@ Ada yang bisa saya bantu untuk pembelajaran Anda hari ini? 😊`
       return `Maaf, saya tidak menemukan informasi spesifik untuk pertanyaan Anda di knowledge base. Namun, saya tetap ingin membantu! 
 
 Bisakah Anda:
+
 - Memberikan lebih detail tentang topik yang Anda tanyakan?
 - Mencoba kata kunci yang berbeda?
 - Atau mungkin saya bisa membantu dengan topik pembelajaran lainnya?
@@ -397,7 +480,7 @@ Informasi ini berasal dari knowledge base ${topDoc.category} kami. Apakah Anda i
    * Generate streaming answer for a question using retrieved documents
    * Returns an async generator that yields chunks of the response
    */
-  private async* generateStreamingAnswer(question: string, docs: any[]): AsyncGenerator<string, void, unknown> {
+  private async* generateStreamingAnswer(question: string, docs: any[], includeMemory: boolean = true): AsyncGenerator<string, void, unknown> {
     // Get current date and time for real-time context
     const currentDate = new Date()
     const dateString = currentDate.toLocaleDateString('id-ID', { 
@@ -419,17 +502,24 @@ Informasi ini berasal dari knowledge base ${topDoc.category} kami. Apakah Anda i
         ).join('\n\n---\n\n')
       : ''
 
+    // Get conversation memory context
+    const memoryContext = includeMemory ? this.getConversationContext() : ''
+
     // Create comprehensive system prompt
     const systemPrompt = `You are GenEdu Agent, a friendly and intelligent AI learning assistant for the GenEdu educational platform.
 
 CURRENT DATE & TIME: ${dateString}, pukul ${timeString} WIB
 
-CORE PERSONALITY:
+${memoryContext ? `CONVERSATION HISTORY:
+${memoryContext}
+
+` : ''}CORE PERSONALITY:
 - Warm, helpful, and encouraging learning companion
 - Respond naturally to greetings (e.g., "Halo! Ada yang bisa saya bantu dengan pembelajaran Anda hari ini?")
 - Always maintain a positive, patient, and educational tone
 - Adapt your communication style to match the user (formal/informal, Indonesian/English)
 - Be conversational and supportive while being educational
+- Reference previous conversations when relevant to provide continuity
 
 KNOWLEDGE BASE CONTEXT:
 ${docs.length > 0 ? `✅ Found ${docs.length} relevant document(s) from the knowledge base` : '⚠️ No specific documents found in knowledge base'}
@@ -442,17 +532,31 @@ RESPONSE INSTRUCTIONS:
 - Answer in the same language as the question (Indonesian/English)
 - Be encouraging about learning and studying
 - If you're unsure, admit it honestly but still try to be helpful
+- Use conversation history to provide personalized and contextual responses
+- Reference previous topics when relevant to show understanding and continuity
 
 CONTEXT HANDLING:
 - When context is available: Reference specific materials and provide detailed explanations
 - When context is limited: Provide general knowledge while noting limitations
 - When no context: Still be helpful with general educational support and guidance
 - Never refuse to answer due to lack of context - always try to assist in some way
+- Use conversation history to understand follow-up questions and provide continuity
 
-FORMAT:
+FORMAT GUIDELINES:
 - Keep responses clear and well-structured
-- Use bullet points or numbered lists when helpful
-- Include encouraging remarks about learning progress when appropriate`
+- Use bullet points (•) with proper spacing - always add blank lines before lists
+- Put each bullet point on its own line for better readability
+- Use numbered lists when showing steps or sequential information
+- Include encouraging remarks about learning progress when appropriate
+- When creating lists, format them like this:
+
+Contoh format yang benar:
+
+• Item pertama
+• Item kedua  
+• Item ketiga
+
+Bukan seperti ini: • Item1 • Item2 • Item3`
 
     // Create user prompt with context
     const userPrompt = docs.length > 0 
@@ -553,8 +657,9 @@ No specific context was found in the knowledge base for this question. Please pr
           fallbackAnswer = `Halo! Senang bertemu dengan Anda. Saya GenEdu Agent, asisten pembelajaran AI yang siap membantu Anda belajar! 
 
 Saya bisa membantu dengan:
+
 • Menjelaskan konsep-konsep pembelajaran
-• Menjawab pertanyaan akademik
+• Menjawab pertanyaan akademik  
 • Memberikan tips belajar
 • Membuat kuis dan latihan
 
@@ -563,6 +668,7 @@ Ada yang bisa saya bantu untuk pembelajaran Anda hari ini? 😊`
           fallbackAnswer = `Maaf, saya tidak menemukan informasi spesifik untuk pertanyaan Anda di knowledge base. Namun, saya tetap ingin membantu! 
 
 Bisakah Anda:
+
 - Memberikan lebih detail tentang topik yang Anda tanyakan?
 - Mencoba kata kunci yang berbeda?
 - Atau mungkin saya bisa membantu dengan topik pembelajaran lainnya?
@@ -636,6 +742,55 @@ Informasi ini berasal dari knowledge base ${topDoc.category} kami. Apakah Anda i
 
   async close() {
     await this.vectorDB.close()
+  }
+
+  /**
+   * Add a conversation to memory
+   */
+  private addToMemory(question: string, answer: string, sources?: any[], confidence?: number) {
+    const memory: ConversationMemory = {
+      question,
+      answer,
+      timestamp: new Date(),
+      sources,
+      confidence
+    }
+    
+    this.conversationMemory.unshift(memory) // Add to beginning
+    
+    // Keep only the most recent conversations
+    if (this.conversationMemory.length > this.maxMemorySize) {
+      this.conversationMemory = this.conversationMemory.slice(0, this.maxMemorySize)
+    }
+  }
+
+  /**
+   * Get conversation history for context
+   */
+  private getConversationContext(): string {
+    if (this.conversationMemory.length === 0) return ''
+    
+    const recentConversations = this.conversationMemory.slice(0, 3) // Last 3 conversations
+    return recentConversations.map((conv, index) => 
+      `Previous Conversation ${index + 1}:
+Q: ${conv.question}
+A: ${conv.answer.substring(0, 200)}${conv.answer.length > 200 ? '...' : ''}
+---`
+    ).join('\n')
+  }
+
+  /**
+   * Clear conversation memory
+   */
+  clearMemory() {
+    this.conversationMemory = []
+  }
+
+  /**
+   * Get current conversation memory
+   */
+  getMemory(): ConversationMemory[] {
+    return [...this.conversationMemory]
   }
 
   /**
