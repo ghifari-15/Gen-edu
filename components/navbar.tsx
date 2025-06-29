@@ -10,11 +10,9 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { useAuth } from "@/lib/auth/AuthContext"
-import { ChatPopup } from "@/components/chat-popup"
 
 export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false)
-  const [chatOpen, setChatOpen] = useState<boolean>(false)
   const pathname = usePathname()
   const isMobile = useIsMobile()
   const isHomePage = pathname === "/"
@@ -24,10 +22,6 @@ export function Navbar() {
   useEffect(() => {
     setMobileMenuOpen(false)
   }, [pathname])
-
-  const toggleChat = (): void => {
-    setChatOpen(!chatOpen)
-  }
 
   const handleLogout = async () => {
     await logout()
@@ -157,20 +151,6 @@ export function Navbar() {
             </div>
           </div>
         </div>
-
-        {/* Desktop Chat Button (only shown when not on home page) */}
-        {!isHomePage && (
-          <Button
-            onClick={toggleChat}
-            className="fixed bottom-6 right-6 rounded-full w-14 h-14 shadow-lg bg-indigo-950 text-white hover:bg-indigo-900 z-40"
-            size="icon"
-          >
-            <MessageCircle className="h-6 w-6" />
-          </Button>
-        )}
-
-        {/* Chat Popup */}
-        <ChatPopup isOpen={chatOpen} onClose={() => setChatOpen(false)} />
       </>
     )
   }
@@ -273,9 +253,6 @@ export function Navbar() {
           />
         </div>
       </div>
-
-      {/* Chat Popup */}
-      <ChatPopup isOpen={chatOpen} onClose={() => setChatOpen(false)} />
 
       {/* Add padding to the bottom of the page to account for the fixed navbar (only on desktop) */}
       {!isMobile && <div className="h-16"></div>}

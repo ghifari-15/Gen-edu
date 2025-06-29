@@ -156,59 +156,59 @@ export function ChatInterface({ isFullScreen = false }: { isFullScreen?: boolean
   }
 
   return (
-    <div className={`flex flex-col h-full ${isFullScreen ? 'min-h-screen' : ''}`}>
-      {/* Header */}
-      <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-800 px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <div className="h-2 w-2 bg-green-400 rounded-full animate-pulse"></div>
-          <div className="text-white">
-            <h3 className="font-semibold text-lg">AI Learning Assistant</h3>
-            <p className="text-sm text-white/80">Available 24/7</p>
+    <div className="flex flex-col h-full">
+      {/* Header - only show when not in fullscreen mode */}
+      {!isFullScreen && (
+        <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-800 px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="h-2 w-2 bg-green-400 rounded-full animate-pulse"></div>
+            <div className="text-white">
+              <h3 className="font-semibold text-lg">AI Learning Assistant</h3>
+              <p className="text-sm text-white/80">Available 24/7</p>
+            </div>
           </div>
-        </div>
-        
-        <div className="flex items-center space-x-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setUseReasoning(!useReasoning)}
-            className={`text-xs ${
-              useReasoning 
-                ? 'bg-purple-100 text-purple-800 hover:bg-purple-200' 
-                : 'text-white/80 hover:text-white hover:bg-white/10'
-            }`}
-            title={useReasoning ? 'Reasoning mode enabled' : 'Reasoning mode disabled'}
-          >
-            <Brain className="h-3 w-3 mr-1" />
-            {useReasoning ? 'Reasoning' : 'Default'}
-          </Button>
+          
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setUseReasoning(!useReasoning)}
+              className={`text-xs ${
+                useReasoning 
+                  ? 'bg-purple-100 text-purple-800 hover:bg-purple-200' 
+                  : 'text-white/80 hover:text-white hover:bg-white/10'
+              }`}
+              title={useReasoning ? 'Reasoning mode enabled' : 'Reasoning mode disabled'}
+            >
+              <Brain className="h-3 w-3 mr-1" />
+              {useReasoning ? 'Reasoning' : 'Default'}
+            </Button>
 
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setUseContext(!useContext)}
-            className={`text-xs ${
-              useContext 
-                ? 'bg-blue-100 text-blue-800 hover:bg-blue-200' 
-                : 'text-white/80 hover:text-white hover:bg-white/10'
-            }`}
-            title={useContext ? 'Quiz context enabled' : 'Quiz context disabled'}
-          >
-            <Database className="h-3 w-3 mr-1" />
-            {useContext ? 'Context' : 'No Context'}
-          </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setUseContext(!useContext)}
+              className={`text-xs ${
+                useContext 
+                  ? 'bg-blue-100 text-blue-800 hover:bg-blue-200' 
+                  : 'text-white/80 hover:text-white hover:bg-white/10'
+              }`}
+              title={useContext ? 'Quiz context enabled' : 'Quiz context disabled'}
+            >
+              <Database className="h-3 w-3 mr-1" />
+              {useContext ? 'Context' : 'No Context'}
+            </Button>
 
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={clearChat}
-            className="text-white/80 hover:text-white hover:bg-white/10"
-            title="Clear conversation"
-          >
-            <RotateCcw className="h-3 w-3" />
-          </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearChat}
+              className="text-white/80 hover:text-white hover:bg-white/10"
+              title="Clear conversation"
+            >
+              <RotateCcw className="h-3 w-3" />
+            </Button>
 
-          {!isFullScreen && (
             <Button
               variant="ghost"
               size="sm"
@@ -218,9 +218,65 @@ export function ChatInterface({ isFullScreen = false }: { isFullScreen?: boolean
             >
               <Expand className="h-3 w-3" />
             </Button>
-          )}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Full screen header - only show in fullscreen mode */}
+      {isFullScreen && (
+        <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-800 px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="h-3 w-3 bg-green-400 rounded-full animate-pulse"></div>
+            <div className="text-white">
+              <h1 className="font-bold text-xl sm:text-2xl">GenEdu AI Assistant</h1>
+              <p className="text-sm text-white/80">Your intelligent learning companion</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center space-x-2 sm:space-x-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setUseReasoning(!useReasoning)}
+              className={`text-xs sm:text-sm px-2 py-1 sm:px-3 sm:py-2 ${
+                useReasoning 
+                  ? 'bg-purple-100 text-purple-800 hover:bg-purple-200' 
+                  : 'text-white/80 hover:text-white hover:bg-white/10'
+              }`}
+              title={useReasoning ? 'Reasoning mode enabled' : 'Reasoning mode disabled'}
+            >
+              <Brain className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+              <span className="hidden sm:inline">{useReasoning ? 'Reasoning Mode' : 'Default Mode'}</span>
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setUseContext(!useContext)}
+              className={`text-xs sm:text-sm px-2 py-1 sm:px-3 sm:py-2 ${
+                useContext 
+                  ? 'bg-blue-100 text-blue-800 hover:bg-blue-200' 
+                  : 'text-white/80 hover:text-white hover:bg-white/10'
+              }`}
+              title={useContext ? 'Quiz context enabled' : 'Quiz context disabled'}
+            >
+              <Database className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+              <span className="hidden sm:inline">{useContext ? 'Context Enabled' : 'No Context'}</span>
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearChat}
+              className="text-white/80 hover:text-white hover:bg-white/10 px-2 py-1 sm:px-3 sm:py-2"
+              title="Clear conversation"
+            >
+              <RotateCcw className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Clear Chat</span>
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Context Info Panel */}
       <AnimatePresence>
@@ -288,24 +344,45 @@ export function ChatInterface({ isFullScreen = false }: { isFullScreen?: boolean
 
       {/* Messages */}
       <div 
-        className="flex-1 p-4 overflow-y-auto space-y-4 bg-gray-50"
+        className="flex-1 p-4 sm:p-6 overflow-y-auto space-y-4 sm:space-y-6 bg-gray-50"
         ref={chatContainerRef}
         style={{ 
           height: isFullScreen 
-            ? 'calc(100vh - 200px)' 
+            ? 'calc(100vh - 250px)' 
             : 'calc(100% - 120px)'
         }}
       >
         {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
-            <div className="text-center">
-              <div className="bg-gradient-to-r from-indigo-600 to-purple-600 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Sparkles className="h-6 w-6 text-white" />
+            <div className="text-center max-w-md mx-auto px-4">
+              <div className="bg-gradient-to-r from-indigo-600 to-purple-600 w-16 h-16 sm:w-12 sm:h-12 rounded-full flex items-center justify-center mx-auto mb-6 sm:mb-4">
+                <Sparkles className="h-8 w-8 sm:h-6 sm:w-6 text-white" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">Hello! I'm GenEdu Agent, your AI learning assistant.</h3>
-              <p className="text-gray-600 text-sm max-w-md">
-                I can help you with studying, explaining concepts, creating quizzes, and more. How can I assist you today?
+              <h3 className="text-xl sm:text-lg font-semibold text-gray-800 mb-3 sm:mb-2">Hello! I'm GenEdu Agent</h3>
+              <p className="text-gray-600 text-base sm:text-sm leading-relaxed">
+                Your AI learning assistant. I can help you with studying, explaining concepts, creating quizzes, and more. How can I assist you today?
               </p>
+              
+              {isFullScreen && (
+                <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                  <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                    <div className="font-medium text-gray-800 mb-2">Quick Actions</div>
+                    <div className="space-y-1 text-gray-600">
+                      <div>• Ask questions</div>
+                      <div>• Explain concepts</div>
+                      <div>• Create quizzes</div>
+                    </div>
+                  </div>
+                  <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                    <div className="font-medium text-gray-800 mb-2">AI Modes</div>
+                    <div className="space-y-1 text-gray-600">
+                      <div>• Reasoning mode</div>
+                      <div>• Context mode</div>
+                      <div>• Default mode</div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         ) : (
@@ -318,7 +395,7 @@ export function ChatInterface({ isFullScreen = false }: { isFullScreen?: boolean
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3 }}
               >
-                <div className={`flex items-start max-w-[80%] ${message.sender === "user" ? "flex-row-reverse" : ""}`}>
+                <div className={`flex items-start max-w-[85%] sm:max-w-[80%] ${message.sender === "user" ? "flex-row-reverse" : ""}`}>
                   {message.sender === "ai" && (
                     <div className="flex-shrink-0 mr-3">
                       <div className={`h-8 w-8 rounded-full flex items-center justify-center text-white text-xs font-medium ${
@@ -401,19 +478,19 @@ export function ChatInterface({ isFullScreen = false }: { isFullScreen?: boolean
       </div>
 
       {/* Input Section */}
-      <div className="border-t border-gray-200 bg-white p-4">
-        <div className="flex items-center space-x-2">
+      <div className="border-t border-gray-200 bg-white p-4 sm:p-6">
+        <div className="flex items-center space-x-2 sm:space-x-3">
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyPress}
             placeholder="Message GenEdu Agent..."
-            className="flex-1 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-lg"
+            className="flex-1 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-lg text-base sm:text-sm"
             disabled={isLoading || isStreaming}
           />
           <Button
             className={`${
-              isFullScreen ? 'h-10 w-10' : 'h-9 w-9'
+              isFullScreen ? 'h-11 w-11 sm:h-10 sm:w-10' : 'h-10 w-10 sm:h-9 sm:w-9'
             } ${
               isLoading || isStreaming 
                 ? 'bg-gray-400 cursor-not-allowed' 
@@ -426,12 +503,12 @@ export function ChatInterface({ isFullScreen = false }: { isFullScreen?: boolean
             onClick={onSend}
             disabled={isLoading || isStreaming || !input.trim()}
           >
-            <ArrowUp className={`${isFullScreen ? 'h-5 w-5' : 'h-4 w-4'}`} />
+            <ArrowUp className={`${isFullScreen ? 'h-5 w-5 sm:h-4 sm:w-4' : 'h-4 w-4'}`} />
           </Button>
         </div>
         
         {isStreaming && (
-          <div className="mt-2 text-xs text-gray-500 flex items-center">
+          <div className="mt-3 text-xs sm:text-sm text-gray-500 flex items-center">
             <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-indigo-600 mr-2"></div>
             {useReasoning ? 'Reasoning through your question...' : useContext ? 'Analyzing with your learning context...' : 'Generating response...'}
           </div>
