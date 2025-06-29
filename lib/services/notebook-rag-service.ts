@@ -64,13 +64,16 @@ class NotebookRAGService {
   async createNotebookCollection(notebookId: string, userId: string): Promise<boolean> {
     try {
       const collectionName = this.getCollectionName(notebookId, userId)
+      console.log(`Creating/checking collection: ${collectionName}`)
       
       // Check if collection already exists
       const exists = await this.qdrantClient.collectionExists(collectionName)
       if (exists) {
+        console.log(`Collection ${collectionName} already exists`)
         return true
       }
 
+      console.log(`Creating new collection: ${collectionName}`)
       // Create collection with dense vectors for embeddings
       await this.qdrantClient.createCollection(collectionName, {
         vectors: {
@@ -79,10 +82,16 @@ class NotebookRAGService {
         }
       })
 
-      console.log(`Created collection: ${collectionName}`)
+      console.log(`Successfully created collection: ${collectionName}`)
       return true
     } catch (error) {
       console.error('Failed to create notebook collection:', error)
+      console.error('Collection creation error details:', {
+        notebookId,
+        userId,
+        collectionName: this.getCollectionName(notebookId, userId),
+        error
+      })
       return false
     }
   }
@@ -128,10 +137,25 @@ class NotebookRAGService {
         return false
       }
 
-      // Create point for the cell
+      console.log(`Generated embedding with ${embedding.length} dimensions for content: ${content.substring(0, 100)}...`)
+
+      // Validate embedding dimension and format
+      if (embedding.length !== 4096) {
+        console.error(`Embedding dimension mismatch: expected 4096, got ${embedding.length}`)
+        return false
+      }
+
+      // Ensure embedding is a proper float array
+      const vectorArray = Array.from(embedding).map(val => Number(val))
+      if (vectorArray.some(val => isNaN(val) || !isFinite(val))) {
+        console.error('Embedding contains invalid values (NaN or Infinity)')
+        return false
+      }
+
+      // Create point for the cell - ensure proper format
       const point = {
-        id: cellId,
-        vector: embedding,
+        id: cellId.toString(),
+        vector: vectorArray, // Use the validated vector array
         payload: {
           content,
           cellType,
@@ -146,10 +170,25 @@ class NotebookRAGService {
         }
       }
 
+      console.log(`Creating point with ID: ${point.id} for collection: ${collectionName}`)
+      console.log(`Vector length: ${point.vector.length}, First few values: ${point.vector.slice(0, 3)}`)
+
       // Upsert the point (insert or update)
-      await this.qdrantClient.upsert(collectionName, {
-        points: [point]
-      })
+      try {
+        await this.qdrantClient.upsert(collectionName, {
+          points: [point]
+        })
+        console.log(`Successfully added point ${point.id} to collection ${collectionName}`)
+      } catch (upsertError) {
+        console.error('Upsert error details:', {
+          error: upsertError,
+          collectionName,
+          pointId: point.id,
+          vectorLength: embedding.length,
+          payload: point.payload
+        })
+        throw upsertError
+      }
 
       return true
     } catch (error) {
@@ -209,14 +248,14 @@ class NotebookRAGService {
       }
 
       // Search for similar content in the notebook
-      const searchResult = await this.qdrantClient.query(collectionName, {
-        query: queryEmbedding,
+      const searchResult = await this.qdrantClient.search(collectionName, {
+        vector: queryEmbedding,
         limit,
         with_payload: true,
         score_threshold: 0.3 // Minimum similarity threshold
       })
 
-      const points = searchResult.points || []
+      const points = searchResult || []
 
       if (!points.length) {
         return {
@@ -537,18 +576,24 @@ This appears to be the most relevant content from your notebook. Would you like 
     try {
       const { limit = 5, scoreThreshold = 0.3, sourceFilter } = options
       const collectionName = this.getCollectionName(notebookId, userId)
+      console.log(`Searching in collection: ${collectionName}`)
       
       // Check if collection exists
       const exists = await this.qdrantClient.collectionExists(collectionName)
+      console.log(`Collection ${collectionName} exists: ${exists}`)
       if (!exists) {
+        console.log(`Collection ${collectionName} not found, returning empty results`)
         return { results: [], totalResults: 0 }
       }
 
       // Generate embedding for the query
       const queryEmbedding = await this.embeddingService.generateEmbedding(query)
       if (!queryEmbedding) {
+        console.error('Failed to generate query embedding')
         return { results: [], totalResults: 0 }
       }
+
+      console.log(`Generated query embedding with ${queryEmbedding.length} dimensions`)
 
       // Build filter for source type if specified
       let filter = undefined
@@ -564,30 +609,43 @@ This appears to be the most relevant content from your notebook. Would you like 
       }
 
       // Search for similar content
-      const searchResult = await this.qdrantClient.query(collectionName, {
-        query: queryEmbedding,
-        limit,
-        with_payload: true,
-        score_threshold: scoreThreshold,
-        filter
-      })
+      console.log(`Performing search with limit: ${limit}, threshold: ${scoreThreshold}`)
+      try {
+        const searchResult = await this.qdrantClient.search(collectionName, {
+          vector: queryEmbedding,
+          limit,
+          with_payload: true,
+          score_threshold: scoreThreshold,
+          filter
+        })
 
-      const points = searchResult.points || []
+        const points = searchResult || []
+        console.log(`Search returned ${points.length} results`)
 
-      // Format results
-      const results = points.map((result: any) => ({
-        id: result.id.toString(),
-        content: result.payload?.content || '',
-        score: result.score || 0,
-        source: result.payload?.metadata?.source || 'unknown',
-        fileName: result.payload?.metadata?.fileName,
-        cellType: result.payload?.cellType,
-        cellIndex: result.payload?.cellIndex
-      }))
+        // Format results
+        const results = points.map((result: any) => ({
+          id: result.id.toString(),
+          content: result.payload?.content || '',
+          score: result.score || 0,
+          source: result.payload?.metadata?.source || 'unknown',
+          fileName: result.payload?.metadata?.fileName,
+          cellType: result.payload?.cellType,
+          cellIndex: result.payload?.cellIndex
+        }))
 
-      return {
-        results,
-        totalResults: results.length
+        return {
+          results,
+          totalResults: results.length
+        }
+      } catch (searchError) {
+        console.error('Search operation failed:', {
+          error: searchError,
+          collectionName,
+          queryLength: queryEmbedding.length,
+          limit,
+          scoreThreshold
+        })
+        throw searchError
       }
       
     } catch (error) {
@@ -662,6 +720,19 @@ This appears to be the most relevant content from your notebook. Would you like 
         totalChunks: 0,
         collectionExists: false
       }
+    }
+  }
+
+  // Test connection to Qdrant
+  async testConnection(): Promise<boolean> {
+    try {
+      // Try to list collections to test the connection
+      const collections = await this.qdrantClient.getCollections()
+      console.log('Qdrant connection successful. Collections:', collections.collections?.length || 0)
+      return true
+    } catch (error) {
+      console.error('Qdrant connection failed:', error)
+      return false
     }
   }
 }

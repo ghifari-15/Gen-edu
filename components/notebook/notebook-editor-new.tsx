@@ -27,6 +27,7 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { NotebookChatPanel } from "./notebook-chat-panel"
 import Link from "next/link"
 
 interface Cell {
@@ -68,10 +69,6 @@ export function NotebookEditor({ notebookId }: NotebookEditorProps) {
   const [isSaving, setIsSaving] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [activeCellId, setActiveCellId] = useState<string | null>(null)
-  const [aiMessages, setAiMessages] = useState<Array<{id: string, role: 'user' | 'ai', content: string}>>([
-    { id: '1', role: 'ai', content: "Hello! I'm your AI assistant. How can I help with your notebook today?" }
-  ])
-  const [aiInput, setAiInput] = useState("")
   
   const isMobile = useIsMobile()
   const router = useRouter()
@@ -289,25 +286,6 @@ export function NotebookEditor({ notebookId }: NotebookEditorProps) {
     setNotebook({ ...notebook, title })
   }
 
-  // AI Chat functionality
-  const handleAiSubmit = async () => {
-    if (!aiInput.trim()) return
-    
-    const userMessage = { id: Date.now().toString(), role: 'user' as const, content: aiInput }
-    setAiMessages(prev => [...prev, userMessage])
-    setAiInput("")
-    
-    // Simulate AI response
-    setTimeout(() => {
-      const aiResponse = { 
-        id: (Date.now() + 1).toString(), 
-        role: 'ai' as const, 
-        content: `I understand you're asking about "${aiInput}". Based on your notebook content, I can help you expand on this topic. Would you like me to suggest some code examples or help you organize your thoughts?`
-      }
-      setAiMessages(prev => [...prev, aiResponse])
-    }, 1000)
-  }
-
   // Render cell content based on type
   const renderCellContent = (cell: Cell) => {
     if (cell.type === 'markdown') {
@@ -418,12 +396,6 @@ export function NotebookEditor({ notebookId }: NotebookEditorProps) {
                 className="flex-1 rounded-none data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 h-full"
               >
                 AI Chat
-              </TabsTrigger>
-              <TabsTrigger
-                value="rag"
-                className="flex-1 rounded-none data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 h-full"
-              >
-                Knowledge
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -570,44 +542,7 @@ export function NotebookEditor({ notebookId }: NotebookEditorProps) {
         {/* AI Assistant sidebar */}
         {(!isMobile || activeTab === "ai-chat") && (
           <div className="w-full md:w-80 border-l border-gray-200 bg-white flex flex-col">
-            <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-indigo-600 to-indigo-800">
-              <h3 className="text-lg font-medium text-white">AI Assistant</h3>
-            </div>
-            <div className="flex-1 p-4 overflow-y-auto">
-              <div className="space-y-4">
-                {aiMessages.map((message) => (
-                  <div key={message.id} className={`${message.role === 'ai' ? 'bg-indigo-50' : 'bg-gray-50'} rounded-lg p-4`}>
-                    <div className="flex items-start">
-                      <div className={`h-8 w-8 rounded-full ${message.role === 'ai' ? 'bg-gradient-to-r from-indigo-600 to-indigo-800' : 'bg-gray-400'} flex items-center justify-center text-white text-sm mr-3 flex-shrink-0`}>
-                        {message.role === 'ai' ? 'AI' : 'U'}
-                      </div>
-                      <div>
-                        <p className={message.role === 'ai' ? 'text-indigo-900' : 'text-gray-900'}>
-                          {message.content}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="p-4 border-t border-gray-200">
-              <div className="relative">
-                <Input
-                  value={aiInput}
-                  onChange={(e) => setAiInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleAiSubmit()}
-                  placeholder="Ask AI about your notebook..."
-                  className="pr-10 bg-gray-50 border-gray-200 rounded-lg"
-                />
-                <Button 
-                  onClick={handleAiSubmit}
-                  className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md"
-                >
-                  <Send className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
+            <NotebookChatPanel notebookId={notebookId} />
           </div>
         )}
       </div>

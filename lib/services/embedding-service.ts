@@ -27,7 +27,9 @@ class EmbeddingService {
       }
 
       const data = await response.json()
-      return data.data[0].embedding
+      const embedding = data.data[0].embedding
+      console.log(`Generated embedding with ${embedding.length} dimensions using Qwen3-Embedding-4B`)
+      return embedding
     } catch (error) {
       console.error('Failed to generate embedding:', error)
       return null

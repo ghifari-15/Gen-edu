@@ -9,9 +9,11 @@ interface IChatMessage {
 interface IChatThread {
   threadId: string
   userId: string
+  notebookId?: string // For notebook-specific chats
   messages: IChatMessage[]
   model: 'claude-sonnet' | 'deepseek-reasoning'
   title?: string
+  uploadedFileContent?: string // Store OCR content from uploaded files
   createdAt: Date
   updatedAt: Date
 }
@@ -44,6 +46,10 @@ const ChatThreadSchema = new mongoose.Schema<IChatThread>({
     required: true,
     index: true
   },
+  notebookId: {
+    type: String,
+    index: true
+  },
   messages: [ChatMessageSchema],
   model: {
     type: String,
@@ -53,6 +59,9 @@ const ChatThreadSchema = new mongoose.Schema<IChatThread>({
   title: {
     type: String,
     maxlength: 100
+  },
+  uploadedFileContent: {
+    type: String
   },
   createdAt: {
     type: Date,
@@ -67,6 +76,7 @@ const ChatThreadSchema = new mongoose.Schema<IChatThread>({
 // Create compound index for efficient queries
 ChatThreadSchema.index({ userId: 1, updatedAt: -1 })
 ChatThreadSchema.index({ threadId: 1, userId: 1 })
+ChatThreadSchema.index({ notebookId: 1, userId: 1 }) // For notebook-specific queries
 
 // Auto-generate title from first message if not provided
 ChatThreadSchema.pre('save', function(next) {

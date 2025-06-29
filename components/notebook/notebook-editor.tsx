@@ -257,7 +257,7 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
     }
   }, [applyFormat])
 
-  // AI Chat functionality with RAG search + fallback to LLM
+  // AI Chat functionality with new simplified system
   const handleAiSubmit = async () => {
     if (!aiInput.trim()) return
     
@@ -272,111 +272,78 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
     setAiInput("")
     
     // Add loading message
+    const loadingMessageId = (Date.now() + 1).toString()
     const loadingMessage = {
-      id: (Date.now() + 1).toString(),
+      id: loadingMessageId,
       role: 'ai' as const,
-      content: "🔍 Searching knowledge base...",
+      content: "",
       isLoading: true,
       timestamp: new Date().toISOString()
     }
     setAiMessages(prev => [...prev, loadingMessage])
     
     try {
-      const notebookIdForRAG = notebookId || notebookData?.id
-      let aiResponse: any
+      const notebookIdForChat = notebookId || notebookData?.id
+      if (!notebookIdForChat) {
+        throw new Error('No notebook ID available')
+      }
 
-      if (notebookIdForRAG) {
-        // Step 1: Search the knowledge base first
-        try {
-          const searchResponse = await fetch(`/api/notebooks/${notebookIdForRAG}/rag/search`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              query: currentInput,
-              limit: 5
-            }),
-          })
+      const response = await fetch(`/api/notebooks/${notebookIdForChat}/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message: currentInput })
+      })
 
-          if (searchResponse.ok) {
-            const searchData = await searchResponse.json()
-            
-            // Step 2: If relevant content found, use RAG
-            if (searchData.results && searchData.results.length > 0) {
-              // Update loading message
-              setAiMessages(prev => 
-                prev.map(msg => 
-                  msg.id === loadingMessage.id 
-                    ? { ...msg, content: "📚 Found relevant content, generating response..." }
+      if (!response.body) {
+        throw new Error('No response body')
+      }
+
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let assistantContent = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        const chunk = decoder.decode(value)
+        const lines = chunk.split('\n')
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6))
+              if (data.content) {
+                assistantContent += data.content
+                // Update the loading message with current content
+                setAiMessages(prev => prev.map(msg => 
+                  msg.id === loadingMessageId 
+                    ? { ...msg, content: assistantContent, isLoading: false }
                     : msg
-                )
-              )
-
-              const ragResponse = await fetch(`/api/notebooks/${notebookIdForRAG}/rag/query`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  query: currentInput,
-                  includeContext: true
-                }),
-              })
-
-              if (ragResponse.ok) {
-                const ragData = await ragResponse.json()
-                aiResponse = {
-                  id: (Date.now() + 2).toString(),
-                  role: 'ai' as const,
-                  content: ragData.response,
-                  sources: ragData.sources || [],
-                  timestamp: new Date().toISOString(),
-                  usedRAG: true
-                }
+                ))
               }
+              if (data.done) {
+                // Streaming complete
+                break
+              }
+              if (data.error) {
+                throw new Error(data.error)
+              }
+            } catch (parseError) {
+              console.error('Parse error:', parseError)
             }
           }
-        } catch (ragError) {
-          console.log('RAG search failed, falling back to LLM:', ragError)
         }
       }
-
-      // Step 3: If no relevant content found or RAG failed, use direct LLM
-      if (!aiResponse) {
-        // Update loading message
-        setAiMessages(prev => 
-          prev.map(msg => 
-            msg.id === loadingMessage.id 
-              ? { ...msg, content: "🤖 Using AI capabilities..." }
-              : msg
-          )
-        )
-
-        // Use a direct LLM response (you can integrate with your preferred LLM service here)
-        const llmResponse = await generateLLMResponse(currentInput)
-        
-        aiResponse = {
-          id: (Date.now() + 2).toString(),
-          role: 'ai' as const,
-          content: llmResponse,
-          timestamp: new Date().toISOString(),
-          usedRAG: false
-        }
-      }
-      
-      // Remove loading message and add AI response
-      setAiMessages(prev => {
-        const filtered = prev.filter(msg => msg.id !== loadingMessage.id)
-        return [...filtered, aiResponse]
-      })
       
     } catch (error) {
       console.error('Error getting AI response:', error)
       
       // Remove loading message and add error message
       setAiMessages(prev => {
-        const filtered = prev.filter(msg => msg.id !== loadingMessage.id)
+        const filtered = prev.filter(msg => msg.id !== loadingMessageId)
         const errorResponse = {
           id: (Date.now() + 2).toString(),
           role: 'ai' as const,
@@ -389,41 +356,13 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
     }
   }
 
-  // Direct LLM response function (fallback when no RAG content)
-  const generateLLMResponse = async (query: string): Promise<string> => {
-    try {
-      // You can integrate with your preferred LLM service here
-      // For now, I'll create a basic response
-      const response = await fetch('/api/chat/llm', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message: query,
-          context: "You are a helpful AI assistant for a note-taking application."
-        }),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        return data.response
-      }
-    } catch (error) {
-      console.error('LLM API error:', error)
-    }
-
-    // Fallback response if LLM API fails
-    return `I understand you're asking about "${query}". While I don't have specific content uploaded to reference, I can help you think through this topic. Could you provide more context or upload relevant documents so I can give you more detailed assistance?`
-  }
-
-  // File upload handlers for RAG in Sources panel
+  // File upload handlers for simplified chat system
   const handleSourcePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
-    const notebookIdForRAG = notebookId || notebookData?.id
-    if (!notebookIdForRAG) {
+    const notebookIdForChat = notebookId || notebookData?.id
+    if (!notebookIdForChat) {
       alert('No notebook ID available for upload')
       return
     }
@@ -440,9 +379,9 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
 
     try {
       const formData = new FormData()
-      formData.append('files', file)  // Changed from 'file' to 'files'
+      formData.append('file', file)
 
-      const response = await fetch(`/api/notebooks/${notebookIdForRAG}/rag`, {
+      const response = await fetch(`/api/notebooks/${notebookIdForChat}/chat`, {
         method: 'POST',
         body: formData,
       })
@@ -466,7 +405,7 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
       const successMessage = {
         id: Date.now().toString(),
         role: 'ai' as const,
-        content: `✅ Successfully processed PDF "${file.name}"! ${result.chunks || 0} chunks added to knowledge base. You can now ask questions about this document.`,
+        content: `✅ Successfully processed PDF "${file.name}"! You can now ask questions about this document.`,
         timestamp: new Date().toISOString()
       }
       setAiMessages(prev => [...prev, successMessage])
@@ -487,94 +426,6 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
         id: Date.now().toString(),
         role: 'ai' as const,
         content: `❌ Failed to process PDF "${file.name}". Please try again or check the file format.`,
-        isError: true,
-        timestamp: new Date().toISOString()
-      }
-      setAiMessages(prev => [...prev, errorMessage])
-    }
-
-    // Reset file input
-    e.target.value = ''
-  }
-
-  const handleSourceTextUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    const notebookIdForRAG = notebookId || notebookData?.id
-    if (!notebookIdForRAG) {
-      alert('No notebook ID available for upload')
-      return
-    }
-
-    // Add source to UI with processing status
-    const sourceId = Date.now().toString()
-    const newSource = {
-      id: sourceId,
-      name: file.name,
-      type: 'text',
-      status: 'processing' as const
-    }
-    setSources(prev => [...prev, newSource])
-
-    try {
-      const text = await file.text()
-      
-      const response = await fetch(`/api/notebooks/${notebookIdForRAG}/rag/text`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          content: text,
-          metadata: {
-            filename: file.name,
-            type: file.type || 'text/plain',
-            uploadedAt: new Date().toISOString()
-          }
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error(`Upload failed: ${response.statusText}`)
-      }
-
-      const result = await response.json()
-      
-      // Update source status to completed
-      setSources(prev => 
-        prev.map(source => 
-          source.id === sourceId 
-            ? { ...source, status: 'completed' as const }
-            : source
-        )
-      )
-
-      // Add success message to AI chat
-      const successMessage = {
-        id: Date.now().toString(),
-        role: 'ai' as const,
-        content: `✅ Successfully processed text file "${file.name}"! ${result.chunks || 0} chunks added to knowledge base. You can now ask questions about this content.`,
-        timestamp: new Date().toISOString()
-      }
-      setAiMessages(prev => [...prev, successMessage])
-    } catch (error) {
-      console.error('Text upload error:', error)
-      
-      // Update source status to failed
-      setSources(prev => 
-        prev.map(source => 
-          source.id === sourceId 
-            ? { ...source, status: 'failed' as const }
-            : source
-        )
-      )
-
-      // Add error message to AI chat
-      const errorMessage = {
-        id: Date.now().toString(),
-        role: 'ai' as const,
-        content: `❌ Failed to process text file "${file.name}". Please try again.`,
         isError: true,
         timestamp: new Date().toISOString()
       }
@@ -765,65 +616,76 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
     }
   }, [notebookData, notebook])
 
-  // RAG management functions
+  // Chat management functions
   const handleClearKnowledgeBase = async () => {
-    const notebookIdForRAG = notebookId || notebookData?.id
-    if (!notebookIdForRAG) return
+    const notebookIdForChat = notebookId || notebookData?.id
+    if (!notebookIdForChat) return
 
-    if (!confirm('Are you sure you want to clear all uploaded content from this notebook\'s knowledge base?')) {
+    if (!confirm('Are you sure you want to clear all chat history and uploaded content?')) {
       return
     }
 
     try {
-      const response = await fetch(`/api/notebooks/${notebookIdForRAG}/rag`, {
+      const response = await fetch(`/api/notebooks/${notebookIdForChat}/chat`, {
         method: 'DELETE',
       })
 
       if (!response.ok) {
-        throw new Error('Failed to clear knowledge base')
+        throw new Error('Failed to clear chat history')
       }
+
+      // Clear sources and messages
+      setSources([])
+      setAiMessages([
+        { 
+          id: '1', 
+          role: 'ai', 
+          content: "Hello! I'm your AI assistant. I can help answer questions based on the content you upload to this notebook. Upload PDFs to get started, or ask me general questions!",
+          timestamp: new Date().toISOString()
+        }
+      ])
 
       // Add confirmation message
       const confirmMessage = {
         id: Date.now().toString(),
         role: 'ai' as const,
-        content: "🗑️ Knowledge base cleared successfully. Upload new documents to start asking questions again.",
+        content: "🗑️ Chat history and uploaded content cleared successfully. Upload new documents to start asking questions again.",
         timestamp: new Date().toISOString()
       }
       setAiMessages(prev => [...prev, confirmMessage])
     } catch (error) {
-      console.error('Error clearing knowledge base:', error)
-      alert('Failed to clear knowledge base. Please try again.')
+      console.error('Error clearing chat:', error)
+      alert('Failed to clear chat history. Please try again.')
     }
   }
 
   const handleShowRAGStats = async () => {
-    const notebookIdForRAG = notebookId || notebookData?.id
-    if (!notebookIdForRAG) return
+    const notebookIdForChat = notebookId || notebookData?.id
+    if (!notebookIdForChat) return
 
     try {
-      const response = await fetch(`/api/notebooks/${notebookIdForRAG}/rag`)
+      const response = await fetch(`/api/notebooks/${notebookIdForChat}/chat`)
       
       if (!response.ok) {
-        throw new Error('Failed to get RAG stats')
+        throw new Error('Failed to get chat stats')
       }
 
-      const stats = await response.json()
+      const chatData = await response.json()
       
       // Add stats message
       const statsMessage = {
         id: Date.now().toString(),
         role: 'ai' as const,
-        content: `📊 **Knowledge Base Stats:**\n\n• **Documents:** ${stats.totalDocuments || 0}\n• **Text Chunks:** ${stats.totalChunks || 0}\n• **Collection:** ${stats.collectionName || 'Not available'}\n• **Last Updated:** ${stats.lastUpdated ? new Date(stats.lastUpdated).toLocaleString() : 'Never'}`,
+        content: `📊 **Chat Stats:**\n\n• **Messages:** ${chatData.messages?.length || 0}\n• **Has Document:** ${chatData.hasUploadedContent ? 'Yes' : 'No'}\n• **Thread ID:** ${chatData.threadId || 'None'}\n• **Sources Uploaded:** ${sources.length}`,
         timestamp: new Date().toISOString()
       }
       setAiMessages(prev => [...prev, statsMessage])
     } catch (error) {
-      console.error('Error getting RAG stats:', error)
+      console.error('Error getting chat stats:', error)
       const errorMessage = {
         id: Date.now().toString(),
         role: 'ai' as const,
-        content: "❌ Could not retrieve knowledge base statistics. The knowledge base might be empty or there was a connection error.",
+        content: "❌ Could not retrieve chat statistics. There might be no chat history yet or a connection error.",
         isError: true,
         timestamp: new Date().toISOString()
       }
@@ -950,29 +812,14 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
                   <Plus className="h-4 w-4 mr-2" />
                   Upload PDF
                 </Button>
-                <Button 
-                  onClick={() => document.getElementById('source-text-upload')?.click()}
-                  variant="outline"
-                  className="w-full border-indigo-200 hover:bg-indigo-50 text-indigo-700 rounded-lg flex items-center justify-center"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Upload Text
-                </Button>
               </div>
               
-              {/* Hidden file inputs */}
+              {/* Hidden file input */}
               <input
                 id="source-pdf-upload"
                 type="file"
                 accept=".pdf"
                 onChange={handleSourcePdfUpload}
-                className="hidden"
-              />
-              <input
-                id="source-text-upload"
-                type="file"
-                accept=".txt,.md,.doc,.docx"
-                onChange={handleSourceTextUpload}
                 className="hidden"
               />
             </div>
@@ -984,7 +831,7 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
                   </div>
                   <h3 className="text-lg font-medium text-gray-900 mb-2">No sources added yet</h3>
                   <p className="text-sm text-gray-500 max-w-xs">
-                    Upload PDFs or text documents to add them to your knowledge base for AI chat.
+                    Upload PDF documents to add them to your knowledge base for AI chat.
                   </p>
                 </div>
               ) : (
@@ -1357,28 +1204,10 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
                 <div>
                   <h3 className="text-lg font-medium text-white">AI Assistant</h3>
                   <p className="text-xs text-indigo-100 mt-1">
-                    Upload documents and ask questions about your content
+                    Upload PDF documents and ask questions about your content
                   </p>
                 </div>
                 <div className="flex gap-1">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={handleShowRAGStats}
-                    className="text-white hover:bg-indigo-700 h-8 w-8 p-0"
-                    title="Show Knowledge Base Stats"
-                  >
-                    📊
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={handleClearKnowledgeBase}
-                    className="text-white hover:bg-indigo-700 h-8 w-8 p-0"
-                    title="Clear Knowledge Base"
-                  >
-                    🗑️
-                  </Button>
                 </div>
               </div>
             </div>
@@ -1403,19 +1232,6 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
                         {message.role === 'ai' ? (message.isLoading ? '⏳' : 'AI') : 'U'}
                       </div>
                       <div className="flex-1">
-                        {/* RAG/LLM indicator for AI messages */}
-                        {message.role === 'ai' && message.usedRAG !== undefined && (
-                          <div className="mb-2">
-                            <span className={`text-xs px-2 py-1 rounded-full ${
-                              message.usedRAG 
-                                ? 'bg-green-100 text-green-700' 
-                                : 'bg-blue-100 text-blue-700'
-                            }`}>
-                              {message.usedRAG ? '📚 Knowledge Base' : '🤖 AI General'}
-                            </span>
-                          </div>
-                        )}
-                        
                         <div className={
                           message.role === 'ai' 
                             ? message.isError 
@@ -1461,33 +1277,6 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
                           })}
                         </div>
                         
-                        {/* Display sources if available */}
-                        {message.sources && message.sources.length > 0 && (
-                          <div className="mt-3 p-3 bg-white rounded-md border border-indigo-200">
-                            <h4 className="text-sm font-medium text-indigo-800 mb-2">
-                              📚 Sources ({message.sources.length})
-                            </h4>
-                            <div className="space-y-2">
-                              {message.sources.slice(0, 3).map((source, index) => (
-                                <div key={index} className="text-xs text-indigo-700 bg-indigo-50 p-2 rounded border">
-                                  <p className="font-medium">Source {index + 1}:</p>
-                                  <p className="mt-1 line-clamp-2">{source.content.substring(0, 200)}...</p>
-                                  {source.metadata && (
-                                    <p className="mt-1 text-indigo-600">
-                                      {source.metadata.filename || source.metadata.title || 'Document'}
-                                    </p>
-                                  )}
-                                </div>
-                              ))}
-                              {message.sources.length > 3 && (
-                                <p className="text-xs text-indigo-600 font-medium">
-                                  + {message.sources.length - 3} more sources
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                        
                         {/* Timestamp */}
                         {message.timestamp && (
                           <p className="text-xs text-gray-500 mt-2">
@@ -1505,10 +1294,10 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
               <div className="mb-3">
                 <div className="flex flex-wrap gap-1">
                   {[
-                    "Summarize the content",
+                    "Summarize the document",
                     "Key points?", 
                     "Explain this topic",
-                    "Show sources"
+                    "What is this about?"
                   ].map((prompt) => (
                     <button
                       key={prompt}
