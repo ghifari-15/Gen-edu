@@ -93,30 +93,80 @@ export function useChat(): UseChatReturn {
           },
           body: JSON.stringify({
             query: message,
-            limit: 5
+            limit: 5,
+            stream: true
           }),
           signal: abortControllerRef.current.signal
         })
 
-        if (response.ok) {
-          const ragData = await response.json()
-          if (ragData.success && ragData.answer) {
-            // Update AI message with RAG response
-            setMessages(prev => prev.map(msg => 
-              msg.id === aiMessageId 
-                ? { 
-                    ...msg, 
-                    text: ragData.answer,
-                    isStreaming: false,
-                    thinking: ragData.confidence > 0 
-                      ? `Retrieved from ${ragData.relevantKnowledge?.length || 0} knowledge sources with ${Math.round(ragData.confidence)}% confidence`
-                      : undefined
+        if (response.ok && response.body) {
+          const reader = response.body.getReader()
+          const decoder = new TextDecoder()
+          
+          let accumulatedText = ''
+          let sources: any[] = []
+          let confidence = 0
+          
+          try {
+            while (true) {
+              const { done, value } = await reader.read()
+              if (done) break
+              
+              const chunk = decoder.decode(value)
+              const lines = chunk.split('\n')
+              
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  const data = line.slice(6).trim()
+                  
+                  try {
+                    const parsed = JSON.parse(data)
+                    
+                    if (parsed.type === 'metadata') {
+                      sources = parsed.sources || []
+                      confidence = parsed.confidence || 0
+                    } else if (parsed.type === 'chunk' && parsed.content) {
+                      accumulatedText += parsed.content
+                      
+                      // Update the streaming message
+                      setMessages(prev => prev.map(msg => 
+                        msg.id === aiMessageId 
+                          ? { 
+                              ...msg, 
+                              text: accumulatedText,
+                              isStreaming: true
+                            }
+                          : msg
+                      ))
+                    } else if (parsed.type === 'complete') {
+                      // Final update
+                      setMessages(prev => prev.map(msg => 
+                        msg.id === aiMessageId 
+                          ? { 
+                              ...msg, 
+                              text: accumulatedText,
+                              isStreaming: false,
+                              thinking: confidence > 0 
+                                ? `Retrieved from ${sources.length} knowledge sources with ${Math.round(confidence)}% confidence`
+                                : undefined
+                            }
+                          : msg
+                      ))
+                      setIsLoading(false)
+                      setIsStreaming(false)
+                      return
+                    } else if (parsed.type === 'error') {
+                      throw new Error(parsed.content || 'RAG streaming error')
+                    }
+                  } catch (parseError) {
+                    // Skip invalid JSON lines
+                    continue
                   }
-                : msg
-            ))
-            setIsLoading(false)
-            setIsStreaming(false)
-            return
+                }
+              }
+            }
+          } finally {
+            reader.releaseLock()
           }
         }
       } catch (ragError) {

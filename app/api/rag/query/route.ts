@@ -5,7 +5,7 @@ export async function POST(request: NextRequest) {
   let ragService: RAGService | null = null
   
   try {
-    const { query, question, limit = 5 } = await request.json()
+    const { query, question, limit = 5, stream = false } = await request.json()
     const userQuery = query || question
 
     if (!userQuery || typeof userQuery !== 'string') {
@@ -16,6 +16,76 @@ export async function POST(request: NextRequest) {
     }
 
     ragService = new RAGService()
+
+    // Handle streaming requests
+    if (stream) {
+      const encoder = new TextEncoder()
+      let fullAnswer = ''
+      let sources: any[] = []
+      let confidence = 0
+
+      const readableStream = new ReadableStream({
+        async start(controller) {
+          try {
+            for await (const data of ragService!.queryRAGStream(userQuery, limit)) {
+              if (data.sources && data.confidence !== undefined) {
+                // Initial metadata
+                sources = data.sources
+                confidence = data.confidence
+                
+                const metadata = JSON.stringify({
+                  type: 'metadata',
+                  sources: data.sources,
+                  confidence: data.confidence
+                })
+                controller.enqueue(encoder.encode(`data: ${metadata}\n\n`))
+              }
+              
+              if (data.chunk) {
+                fullAnswer += data.chunk
+                const chunkData = JSON.stringify({
+                  type: 'chunk',
+                  content: data.chunk
+                })
+                controller.enqueue(encoder.encode(`data: ${chunkData}\n\n`))
+              }
+              
+              if (data.isComplete) {
+                const completionData = JSON.stringify({
+                  type: 'complete',
+                  fullAnswer,
+                  sources,
+                  confidence,
+                  success: true
+                })
+                controller.enqueue(encoder.encode(`data: ${completionData}\n\n`))
+                controller.close()
+                return
+              }
+            }
+          } catch (error) {
+            console.error('RAG streaming error:', error)
+            const errorData = JSON.stringify({
+              type: 'error',
+              content: 'Maaf, terjadi kesalahan saat memproses pertanyaan Anda. Silakan coba lagi.',
+              success: false
+            })
+            controller.enqueue(encoder.encode(`data: ${errorData}\n\n`))
+            controller.close()
+          }
+        }
+      })
+
+      return new Response(readableStream, {
+        headers: {
+          'Content-Type': 'text/plain; charset=utf-8',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        },
+      })
+    }
+
+    // Handle non-streaming requests (legacy)
     const result = await ragService.queryRAG(userQuery, limit)
 
     return NextResponse.json({
