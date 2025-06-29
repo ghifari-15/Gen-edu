@@ -4,12 +4,13 @@ import Quiz from '@/lib/models/Quiz'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await connectToDatabase()
     
-    const quiz = await Quiz.findOne({ quizId: params.id })
+    const { id } = await params
+    const quiz = await Quiz.findOne({ quizId: id })
     
     if (!quiz) {
       return NextResponse.json({ error: 'Quiz not found' }, { status: 404 })

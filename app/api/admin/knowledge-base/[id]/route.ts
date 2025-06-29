@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyAdminToken } from '@/lib/auth/verify-token'
-import KnowledgeBaseStorage from '@/lib/storage/knowledge-base-storage'
+import { MongoClient, ObjectId } from 'mongodb'
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const adminUser = await verifyAdminToken(request)
@@ -12,7 +12,7 @@ export async function PUT(
       return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id } = params
+    const { id } = await params
     const body = await request.json()
     const { title, content, category, tags } = body
 
@@ -23,15 +23,30 @@ export async function PUT(
       }, { status: 400 })
     }
 
-    const storage = KnowledgeBaseStorage.getInstance()
-    const updatedEntry = storage.update(id, {
-      title,
-      content,
-      category,
-      tags: tags || []
-    })
+    const uri = process.env.MONGODB_URI!
+    const client = new MongoClient(uri)
+    await client.connect()
+    
+    const db = client.db(process.env.MONGODB_DB || 'genedu')
+    const collection = db.collection('knowledgebases')
 
-    if (!updatedEntry) {
+    // Update the knowledge entry
+    const updateResult = await collection.updateOne(
+      { _id: new ObjectId(id) },
+      {
+        $set: {
+          title,
+          text: content,
+          category,
+          tags: tags || [],
+          'metadata.updatedAt': new Date().toISOString()
+        }
+      }
+    )
+
+    await client.close()
+
+    if (updateResult.matchedCount === 0) {
       return NextResponse.json({ 
         success: false, 
         message: 'Knowledge entry not found' 
@@ -40,7 +55,6 @@ export async function PUT(
 
     return NextResponse.json({
       success: true,
-      entry: updatedEntry,
       message: 'Knowledge entry updated successfully'
     })
   } catch (error) {
@@ -54,7 +68,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const adminUser = await verifyAdminToken(request)
@@ -62,11 +76,22 @@ export async function DELETE(
       return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id } = params
-    const storage = KnowledgeBaseStorage.getInstance()
-    const success = storage.delete(id)
+    const { id } = await params
+    const uri = process.env.MONGODB_URI!
+    const client = new MongoClient(uri)
+    await client.connect()
+    
+    const db = client.db(process.env.MONGODB_DB || 'genedu')
+    const collection = db.collection('knowledgebases')
 
-    if (!success) {
+    // Delete the knowledge entry
+    const deleteResult = await collection.deleteOne({
+      _id: new ObjectId(id)
+    })
+
+    await client.close()
+
+    if (deleteResult.deletedCount === 0) {
       return NextResponse.json({ 
         success: false, 
         message: 'Knowledge entry not found' 

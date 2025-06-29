@@ -7,7 +7,7 @@ import { KnowledgeBaseManager } from '@/lib/utils/knowledge-base';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const token = request.cookies.get('auth-token')?.value;
@@ -37,7 +37,8 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid answers format' }, { status: 400 })
     }
 
-    const quiz = await Quiz.findOne({ quizId: params.id })
+    const { id } = await params
+    const quiz = await Quiz.findOne({ quizId: id })
     
     if (!quiz) {
       return NextResponse.json({ error: 'Quiz not found' }, { status: 404 })

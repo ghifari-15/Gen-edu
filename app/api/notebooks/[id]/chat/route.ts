@@ -23,7 +23,7 @@ const defaultLLM = new ChatOpenAI({
 // GET - Get chat history for a notebook
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const token = request.cookies.get('auth-token')?.value;
@@ -45,7 +45,7 @@ export async function GET(
 
     await connectToDatabase()
 
-    const notebookId = params.id
+    const { id: notebookId } = await params
 
     // Find chat thread for this notebook
     const chatThread = await ChatThread.findOne({
@@ -80,7 +80,7 @@ export async function GET(
 // POST - Send message or upload file
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const token = request.cookies.get('auth-token')?.value;
@@ -102,7 +102,7 @@ export async function POST(
 
     await connectToDatabase()
 
-    const notebookId = params.id
+    const { id: notebookId } = await params
     const contentType = request.headers.get('content-type')
 
     // Handle file upload
@@ -303,7 +303,7 @@ Use this content to answer questions when relevant, but also engage in general c
 // DELETE - Clear chat history
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const token = request.cookies.get('auth-token')?.value;
@@ -325,7 +325,7 @@ export async function DELETE(
 
     await connectToDatabase()
 
-    const notebookId = params.id
+    const { id: notebookId } = await params
 
     await ChatThread.deleteOne({
       notebookId,

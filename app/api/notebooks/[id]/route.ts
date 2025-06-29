@@ -6,7 +6,7 @@ import { ActivityTracker } from '@/lib/utils/activity-tracker';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const token = request.cookies.get('auth-token')?.value;
@@ -29,8 +29,9 @@ export async function GET(
 
     await dbConnect();
 
+    const { id } = await params
     const notebook = await Notebook.findOne({ 
-      notebookId: params.id,
+      notebookId: id,
       $or: [
         { userId: payload.userId },
         { 'sharing.isPublic': true },
@@ -67,7 +68,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const token = request.cookies.get('auth-token')?.value;
@@ -92,8 +93,9 @@ export async function PUT(
 
     await dbConnect();
 
+    const { id } = await params
     const notebook = await Notebook.findOne({ 
-      notebookId: params.id,
+      notebookId: id,
       $or: [
         { userId: payload.userId },
         { 'sharing.sharedWith': payload.userId, 'sharing.permissions.canEdit': true }
@@ -140,7 +142,7 @@ export async function PUT(
         title: `Updated notebook: ${notebook.title}`,
         description: `Made changes to ${notebook.title}`,
         metadata: {
-          notebookId: params.id,
+          notebookId: id,
           cellsAdded: notebook.cells.length,
           wordsWritten: wordsWritten,
           sessionDuration: 5, // Approximate session duration in minutes
@@ -168,7 +170,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const token = request.cookies.get('auth-token')?.value;
@@ -191,8 +193,9 @@ export async function DELETE(
 
     await dbConnect();
 
+    const { id } = await params
     const notebook = await Notebook.findOneAndDelete({ 
-      notebookId: params.id,
+      notebookId: id,
       userId: payload.userId // Only owner can delete
     });
 

@@ -28,8 +28,10 @@ export interface RAGOptions {
 class RAGService {
   private vectorDB: VectorDatabase
   private embeddingService: EmbeddingService
-  private conversationMemory: ConversationMemory[] = []
   private maxMemorySize: number = 10 // Maximum number of conversations to remember
+  
+  // Static memory storage that persists across instances
+  private static globalConversationMemory: ConversationMemory[] = []
 
   constructor() {
     this.vectorDB = new VectorDatabase()
@@ -358,8 +360,17 @@ ${memoryContext}
 KNOWLEDGE BASE CONTEXT:
 ${docs.length > 0 ? `✅ Found ${docs.length} relevant document(s) from the knowledge base` : '⚠️ No specific documents found in knowledge base'}
 
+CRITICAL INSTRUCTION - UNDERSTANDING AND SUMMARIZING:
+🚨 NEVER copy or paste raw data from the knowledge base documents
+🚨 ALWAYS understand the content first, then provide a summary that directly answers the user's question
+🚨 Process the information and present it in your own words, tailored to what the user is asking
+
 RESPONSE INSTRUCTIONS:
-- ALWAYS provide a helpful response, regardless of available context
+- READ and UNDERSTAND the provided documents thoroughly
+- IDENTIFY what specifically the user is asking for
+- SYNTHESIZE the information to directly answer their question
+- PROVIDE a clear, concise summary in natural language
+- NEVER include document metadata, raw text, or unfiltered content
 - If you have relevant knowledge base context, use it to provide detailed, accurate answers
 - If context is limited or not found, still provide general educational guidance and offer to help further
 - For greetings or casual conversations, respond naturally and warmly
@@ -370,7 +381,7 @@ RESPONSE INSTRUCTIONS:
 - Reference previous topics when relevant to show understanding and continuity
 
 CONTEXT HANDLING:
-- When context is available: Reference specific materials and provide detailed explanations
+- When context is available: UNDERSTAND the materials and provide clear explanations
 - When context is limited: Provide general knowledge while noting limitations
 - When no context: Still be helpful with general educational support and guidance
 - Never refuse to answer due to lack of context - always try to assist in some way
@@ -390,19 +401,31 @@ Contoh format yang benar:
 • Item kedua  
 • Item ketiga
 
-Bukan seperti ini: • Item1 • Item2 • Item3`
+Bukan seperti ini: • Item1 • Item2 • Item3
+
+EXAMPLE OF GOOD VS BAD RESPONSES:
+
+❌ BAD (Raw data copying):
+"Document 1 - Physics Laws (science): Newton's first law states that an object at rest will remain at rest..."
+
+✅ GOOD (Understanding and summarizing):
+"Berdasarkan materi fisika yang tersedia, hukum gerak Newton menjelaskan bahwa benda yang diam akan tetap diam kecuali ada gaya yang mempengaruhinya. Ini adalah konsep dasar dalam memahami gerakan benda..."
+
+REMEMBER: Your job is to be a knowledgeable teacher who understands the material and explains it clearly, NOT a copy-paste machine!`
 
     // Create user prompt with context
     const userPrompt = docs.length > 0 
-      ? `KNOWLEDGE BASE CONTEXT:
+      ? `ORIGINAL USER QUESTION: "${question}"
+
+RELEVANT KNOWLEDGE BASE CONTEXT:
 ${context}
 
-USER QUESTION: ${question}
+TASK: Please understand the above knowledge base materials and provide a comprehensive, natural answer to the user's question. Do not copy raw text - instead, synthesize and explain the information in your own words that directly addresses what the user is asking about.`
+      : `ORIGINAL USER QUESTION: "${question}"
 
-Please answer based on the available context above. If the context doesn't fully answer the question, provide what you can from the context and supplement with general educational guidance.`
-      : `USER QUESTION: ${question}
+STATUS: No specific context was found in the knowledge base for this question.
 
-No specific context was found in the knowledge base for this question. Please provide a helpful general response and encourage the user about their learning journey.`
+TASK: Please provide a helpful general response based on your knowledge and encourage the user about their learning journey. Be supportive and offer alternative ways to help.`
 
     try {
       // Use DeepInfra API to generate answer
@@ -524,8 +547,17 @@ ${memoryContext}
 KNOWLEDGE BASE CONTEXT:
 ${docs.length > 0 ? `✅ Found ${docs.length} relevant document(s) from the knowledge base` : '⚠️ No specific documents found in knowledge base'}
 
+CRITICAL INSTRUCTION - UNDERSTANDING AND SUMMARIZING:
+🚨 NEVER copy or paste raw data from the knowledge base documents
+🚨 ALWAYS understand the content first, then provide a summary that directly answers the user's question
+🚨 Process the information and present it in your own words, tailored to what the user is asking
+
 RESPONSE INSTRUCTIONS:
-- ALWAYS provide a helpful response, regardless of available context
+- READ and UNDERSTAND the provided documents thoroughly
+- IDENTIFY what specifically the user is asking for
+- SYNTHESIZE the information to directly answer their question
+- PROVIDE a clear, concise summary in natural language
+- NEVER include document metadata, raw text, or unfiltered content
 - If you have relevant knowledge base context, use it to provide detailed, accurate answers
 - If context is limited or not found, still provide general educational guidance and offer to help further
 - For greetings or casual conversations, respond naturally and warmly
@@ -536,7 +568,7 @@ RESPONSE INSTRUCTIONS:
 - Reference previous topics when relevant to show understanding and continuity
 
 CONTEXT HANDLING:
-- When context is available: Reference specific materials and provide detailed explanations
+- When context is available: UNDERSTAND the materials and provide clear explanations
 - When context is limited: Provide general knowledge while noting limitations
 - When no context: Still be helpful with general educational support and guidance
 - Never refuse to answer due to lack of context - always try to assist in some way
@@ -556,19 +588,31 @@ Contoh format yang benar:
 • Item kedua  
 • Item ketiga
 
-Bukan seperti ini: • Item1 • Item2 • Item3`
+Bukan seperti ini: • Item1 • Item2 • Item3
+
+EXAMPLE OF GOOD VS BAD RESPONSES:
+
+❌ BAD (Raw data copying):
+"Document 1 - Physics Laws (science): Newton's first law states that an object at rest will remain at rest..."
+
+✅ GOOD (Understanding and summarizing):
+"Berdasarkan materi fisika yang tersedia, hukum gerak Newton menjelaskan bahwa benda yang diam akan tetap diam kecuali ada gaya yang mempengaruhinya. Ini adalah konsep dasar dalam memahami gerakan benda..."
+
+REMEMBER: Your job is to be a knowledgeable teacher who understands the material and explains it clearly, NOT a copy-paste machine!`
 
     // Create user prompt with context
     const userPrompt = docs.length > 0 
-      ? `KNOWLEDGE BASE CONTEXT:
+      ? `ORIGINAL USER QUESTION: "${question}"
+
+RELEVANT KNOWLEDGE BASE CONTEXT:
 ${context}
 
-USER QUESTION: ${question}
+TASK: Please understand the above knowledge base materials and provide a comprehensive, natural answer to the user's question. Do not copy raw text - instead, synthesize and explain the information in your own words that directly addresses what the user is asking about.`
+      : `ORIGINAL USER QUESTION: "${question}"
 
-Please answer based on the available context above. If the context doesn't fully answer the question, provide what you can from the context and supplement with general educational guidance.`
-      : `USER QUESTION: ${question}
+STATUS: No specific context was found in the knowledge base for this question.
 
-No specific context was found in the knowledge base for this question. Please provide a helpful general response and encourage the user about their learning journey.`
+TASK: Please provide a helpful general response based on your knowledge and encourage the user about their learning journey. Be supportive and offer alternative ways to help.`
 
     try {
       // Use DeepInfra API to generate streaming answer
@@ -756,11 +800,11 @@ Informasi ini berasal dari knowledge base ${topDoc.category} kami. Apakah Anda i
       confidence
     }
     
-    this.conversationMemory.unshift(memory) // Add to beginning
+    RAGService.globalConversationMemory.unshift(memory) // Add to beginning
     
     // Keep only the most recent conversations
-    if (this.conversationMemory.length > this.maxMemorySize) {
-      this.conversationMemory = this.conversationMemory.slice(0, this.maxMemorySize)
+    if (RAGService.globalConversationMemory.length > this.maxMemorySize) {
+      RAGService.globalConversationMemory = RAGService.globalConversationMemory.slice(0, this.maxMemorySize)
     }
   }
 
@@ -768,10 +812,10 @@ Informasi ini berasal dari knowledge base ${topDoc.category} kami. Apakah Anda i
    * Get conversation history for context
    */
   private getConversationContext(): string {
-    if (this.conversationMemory.length === 0) return ''
+    if (RAGService.globalConversationMemory.length === 0) return ''
     
-    const recentConversations = this.conversationMemory.slice(0, 3) // Last 3 conversations
-    return recentConversations.map((conv, index) => 
+    const recentConversations = RAGService.globalConversationMemory.slice(0, 3) // Last 3 conversations
+    return recentConversations.map((conv: ConversationMemory, index: number) => 
       `Previous Conversation ${index + 1}:
 Q: ${conv.question}
 A: ${conv.answer.substring(0, 200)}${conv.answer.length > 200 ? '...' : ''}
@@ -783,14 +827,14 @@ A: ${conv.answer.substring(0, 200)}${conv.answer.length > 200 ? '...' : ''}
    * Clear conversation memory
    */
   clearMemory() {
-    this.conversationMemory = []
+    RAGService.globalConversationMemory = []
   }
 
   /**
    * Get current conversation memory
    */
   getMemory(): ConversationMemory[] {
-    return [...this.conversationMemory]
+    return [...RAGService.globalConversationMemory]
   }
 
   /**
