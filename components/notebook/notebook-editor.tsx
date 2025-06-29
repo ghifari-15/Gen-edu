@@ -729,7 +729,7 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
   return (
     <div className="flex flex-col h-[calc(100vh-64px)]">
       {/* Top bar */}
-      <div className="flex justify-between items-center px-4 py-3 border-b border-gray-200 bg-white text-gray-900">
+      <div className="flex justify-between items-center px-4 py-3 border-b border-gray-200 bg-white text-gray-900 flex-shrink-0">
         <div className="flex items-center">
           <Link href="/notebook" className="mr-3 md:hidden">
             <Button variant="ghost" size="icon" className="text-gray-500">
@@ -741,7 +741,8 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
             onChange={(e) => setTitle(e.target.value)}
             className="text-xl font-bold border-0 focus-visible:ring-0 p-0 h-auto bg-transparent max-w-[200px] md:max-w-none text-black"
           />
-        </div>        <div className="flex items-center space-x-2">
+        </div>
+        <div className="flex items-center space-x-2">
           <Button 
             variant="outline" 
             size="sm"
@@ -772,7 +773,7 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
 
       {/* Mobile tabs */}
       {isMobile && (
-        <div className="border-b border-gray-200 bg-white">
+        <div className="border-b border-gray-200 bg-white flex-shrink-0">
           <Tabs defaultValue="notes" onValueChange={setActiveTab}>
             <TabsList className="w-full bg-transparent h-12 p-0">
               <TabsTrigger
@@ -799,11 +800,11 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
       )}
 
       {/* Main content */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden min-h-0">
         {/* Sources sidebar */}
         {(!isMobile || activeTab === "sources") && (
-          <div className="w-full md:w-64 border-r border-gray-200 bg-white flex flex-col">
-            <div className="p-4 border-b border-gray-200">
+          <div className="w-full md:w-80 border-r border-gray-200 bg-white flex flex-col">
+            <div className="p-4 border-b border-gray-200 flex-shrink-0">
               <div className="space-y-2">
                 <Button 
                   onClick={() => document.getElementById('source-pdf-upload')?.click()}
@@ -823,7 +824,7 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
                 className="hidden"
               />
             </div>
-            <div className="flex-1 p-4 overflow-y-auto">
+            <div className="flex-1 p-4 overflow-y-auto min-h-0">
               {sources.length === 0 ? (
                 <div className="flex flex-col items-center justify-center text-center h-full">
                   <div className="bg-gray-100 rounded-full p-4 mb-4">
@@ -879,8 +880,9 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
 
         {/* Editor area */}
         {(!isMobile || activeTab === "notes") && (
-          <div className="flex-1 flex flex-col bg-white overflow-hidden">            {/* Font and size controls */}
-            <div className="flex items-center p-2 border-b border-gray-200 gap-2">
+          <div className="flex-1 flex flex-col bg-white min-h-0">
+            {/* Font and size controls */}
+            <div className="flex items-center p-2 border-b border-gray-200 gap-2 flex-shrink-0 overflow-x-auto">
               <Select value={fontFamily} onValueChange={setFontFamily}>
                 <SelectTrigger className="w-32 h-8">
                   <SelectValue />
@@ -922,10 +924,12 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
                   <SelectItem value="h6">Heading 6</SelectItem>
                 </SelectContent>
               </Select>
-            </div>            {/* Formatting toolbar */}
-            <div className="flex items-center p-2 border-b border-gray-200 overflow-x-auto">
+            </div>
+
+            {/* Formatting toolbar */}
+            <div className="flex items-center p-2 border-b border-gray-200 overflow-x-auto flex-shrink-0">
               {/* Undo/Redo */}
-              <div className="flex space-x-1 mr-2 pr-2 border-r border-gray-200">
+              <div className="flex space-x-1 mr-2 pr-2 border-r border-gray-200 flex-shrink-0">
                 <Button
                   variant="ghost"
                   size="icon"
@@ -947,7 +951,7 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
               </div>
 
               {/* Text formatting */}
-              <div className="flex space-x-1 mr-2 pr-2 border-r border-gray-200">
+              <div className="flex space-x-1 mr-2 pr-2 border-r border-gray-200 flex-shrink-0">
                 <Button
                   variant="ghost"
                   size="icon"
@@ -986,8 +990,8 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
                 </Button>
               </div>
 
-              {/* Colors */}
-              <div className="flex space-x-1 mr-2 pr-2 border-r border-gray-200">
+              {/* Colors - hidden on small screens */}
+              <div className="hidden md:flex space-x-1 mr-2 pr-2 border-r border-gray-200 flex-shrink-0">
                 <Button
                   variant="ghost"
                   size="icon"
@@ -1009,7 +1013,7 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
               </div>
               
               {/* Alignment */}
-              <div className="flex space-x-1 mr-2 pr-2 border-r border-gray-200">
+              <div className="flex space-x-1 mr-2 pr-2 border-r border-gray-200 flex-shrink-0">
                 <Button
                   variant="ghost"
                   size="icon"
@@ -1040,7 +1044,7 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
               </div>
               
               {/* Lists and formatting */}
-              <div className="flex space-x-1 mr-2 pr-2 border-r border-gray-200">
+              <div className="flex space-x-1 mr-2 pr-2 border-r border-gray-200 flex-shrink-0">
                 <Button
                   variant="ghost"
                   size="icon"
@@ -1070,30 +1074,8 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
                 </Button>
               </div>
               
-              {/* Subscript/Superscript */}
-              <div className="flex space-x-1 mr-2 pr-2 border-r border-gray-200">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => applyFormat('subscript')}
-                  className="h-8 w-8 text-gray-500 hover:text-indigo-600 hover:bg-gray-100"
-                  title="Subscript"
-                >
-                  <Subscript className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => applyFormat('superscript')}
-                  className="h-8 w-8 text-gray-500 hover:text-indigo-600 hover:bg-gray-100"
-                  title="Superscript"
-                >
-                  <Superscript className="h-4 w-4" />
-                </Button>
-              </div>
-              
-              {/* Insert options */}
-              <div className="flex space-x-1">
+              {/* Insert options - some hidden on small screens */}
+              <div className="flex space-x-1 flex-shrink-0">
                 <Button
                   variant="ghost"
                   size="icon"
@@ -1107,7 +1089,7 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
                   variant="ghost"
                   size="icon"
                   onClick={insertImage}
-                  className="h-8 w-8 text-gray-500 hover:text-indigo-600 hover:bg-gray-100"
+                  className="hidden sm:flex h-8 w-8 text-gray-500 hover:text-indigo-600 hover:bg-gray-100"
                   title="Insert Image"
                 >
                   <ImageIcon className="h-4 w-4" />
@@ -1116,7 +1098,7 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
                   variant="ghost"
                   size="icon"
                   onClick={insertTable}
-                  className="h-8 w-8 text-gray-500 hover:text-indigo-600 hover:bg-gray-100"
+                  className="hidden md:flex h-8 w-8 text-gray-500 hover:text-indigo-600 hover:bg-gray-100"
                   title="Insert Table"
                 >
                   <Table className="h-4 w-4" />
@@ -1131,23 +1113,26 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
                   <Code className="h-4 w-4" />
                 </Button>
               </div>
-            </div>{/* Editor */}
-            <div className="flex-1 overflow-auto">
+            </div>            {/* Editor */}
+            <div className="flex-1 overflow-auto min-h-0">
               <div
                 ref={editorRef}
                 contentEditable
                 onInput={handleContentChange}
                 onKeyDown={handleKeyDown}
                 data-placeholder="Start typing your notes..."
-                className="rich-editor w-full h-full min-h-[500px] p-6 outline-none text-sm leading-relaxed [&>*]:text-black [&_*]:text-black"
+                className="rich-editor w-full p-6 outline-none text-sm leading-relaxed [&>*]:text-black [&_*]:text-black"
                 style={{ 
                   fontFamily: fontFamily, 
                   fontSize: `${fontSize}px`,
                   lineHeight: '1.6',
                   color: '#000000 !important',
-                  backgroundColor: '#ffffff'
+                  backgroundColor: '#ffffff',
+                  minHeight: '100%',
+                  height: '100%'
                 }}
-                suppressContentEditableWarning={true}              />
+                suppressContentEditableWarning={true}
+              />
             </div>
 
             {/* Status bar */}
@@ -1173,7 +1158,7 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
 
             {/* Keyboard shortcuts overlay */}
             {showShortcuts && (
-              <div className="absolute bottom-16 left-4 bg-white border border-gray-200 rounded-lg shadow-lg p-4 z-10 max-w-sm">
+              <div className="absolute bottom-16 left-4 right-4 md:left-4 md:right-auto md:max-w-sm bg-white border border-gray-200 rounded-lg shadow-lg p-4 z-10">
                 <h4 className="font-semibold text-sm mb-2">Keyboard Shortcuts</h4>
                 <div className="text-xs space-y-1">
                   <div className="flex justify-between"><span>Bold:</span><span>Ctrl+B</span></div>
@@ -1198,8 +1183,8 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
 
         {/* AI Assistant sidebar */}
         {(!isMobile || activeTab === "ai-chat") && (
-          <div className="w-full md:w-80 border-l border-gray-200 bg-white flex flex-col">
-            <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-indigo-600 to-indigo-800">
+          <div className="w-full md:w-80 xl:w-96 border-l border-gray-200 bg-white flex flex-col h-full">
+            <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-indigo-600 to-indigo-800 flex-shrink-0">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-lg font-medium text-white">AI Assistant</h3>
@@ -1208,10 +1193,28 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
                   </p>
                 </div>
                 <div className="flex gap-1">
+                  <Button
+                    onClick={handleClearKnowledgeBase}
+                    size="sm"
+                    variant="ghost"
+                    className="text-white hover:bg-indigo-700 px-2 py-1 h-auto text-xs"
+                    title="Clear chat history"
+                  >
+                    Clear
+                  </Button>
+                  <Button
+                    onClick={handleShowRAGStats}
+                    size="sm"
+                    variant="ghost"
+                    className="text-white hover:bg-indigo-700 px-2 py-1 h-auto text-xs"
+                    title="Show chat stats"
+                  >
+                    Stats
+                  </Button>
                 </div>
               </div>
             </div>
-            <div className="flex-1 p-4 overflow-y-auto">
+            <div className="flex-1 p-4 overflow-y-auto min-h-0">
               <div className="space-y-4">
                 {aiMessages.map((message) => (
                   <div key={message.id} className={`${
@@ -1289,7 +1292,7 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
                 ))}
               </div>
             </div>
-            <div className="p-4 border-t border-gray-200">
+            <div className="p-4 border-t border-gray-200 flex-shrink-0 bg-white">
               {/* Quick prompts */}
               <div className="mb-3">
                 <div className="flex flex-wrap gap-1">
@@ -1317,7 +1320,7 @@ export function NotebookEditor({ notebookId, notebook }: NotebookEditorProps) {
                   onChange={(e) => setAiInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleAiSubmit()}
                   placeholder="Ask AI about your uploaded content..."
-                  className="pr-10 bg-gray-50 border-gray-200 rounded-lg text-black placeholder-gray-500"
+                  className="pr-12 bg-gray-50 border-gray-200 rounded-lg text-black placeholder-gray-500"
                   disabled={!aiInput.trim() && aiMessages.some(msg => msg.isLoading)}
                 />
                 <Button 

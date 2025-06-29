@@ -11,7 +11,7 @@ export default function NotebookDetailPage() {
 
   return (
     <ProtectedRoute>
-      <main className="min-h-screen flex flex-col bg-gray-100">
+      <main className="h-screen flex flex-col bg-gray-100 overflow-hidden">
         <Navbar />
         <NotebookEditor notebookId={notebookId} />
       </main>
