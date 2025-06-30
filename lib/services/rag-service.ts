@@ -95,85 +95,34 @@ class RAGService {
       // Search for similar knowledge
       const similarDocs = await this.vectorDB.searchSimilar(queryEmbedding, limit, 0.3)
       
+      let docs = similarDocs
+      let confidence = 0
+      
       if (similarDocs.length === 0) {
-        // Check if it's a basic greeting or casual question
-        const isBasicGreeting = this.isBasicGreeting(question)
-        
         // Fallback to text search
         const textResults = await this.vectorDB.textSearch(question, limit)
         if (textResults.length > 0) {
-          // Use text search results
-          const sources = textResults.map(doc => ({
-            title: doc.title,
-            content: doc.text.substring(0, 200) + '...',
-            category: doc.category,
-            similarity: 0.5 // Default similarity for text search
-          }))
-
-          const answer = await this.generateAnswer(question, textResults, includeMemory)
-          
-          // Add to memory
-          if (includeMemory) {
-            this.addToMemory(question, answer, sources, 50)
-          }
-          
-          return {
-            answer,
-            sources,
-            confidence: 50 // Lower confidence for text search
-          }
+          docs = textResults
+          confidence = 50 // Lower confidence for text search
+        } else {
+          // No relevant knowledge found - let LLM answer with general knowledge
+          docs = []
+          confidence = 30 // General knowledge confidence
         }
-        
-        // If it's a basic greeting, respond naturally without mentioning knowledge base
-        if (isBasicGreeting) {
-          const answer = await this.generateAnswer(question, [], includeMemory)
-          
-          // Add to memory
-          if (includeMemory) {
-            this.addToMemory(question, answer, [], 80)
-          }
-          
-          return {
-            answer,
-            sources: [],
-            confidence: 80 // High confidence for basic greetings
-          }
-        }
-        
-        // For specific questions that need knowledge base
-        const fallbackAnswer = `Maaf, saya tidak menemukan informasi spesifik untuk pertanyaan Anda di knowledge base saat ini. 
-
-Bisakah Anda:
-
-• Mencoba kata kunci yang berbeda?
-• Memberikan lebih detail tentang topik yang Anda tanyakan?
-• Atau mungkin saya bisa membantu dengan topik pembelajaran lainnya?
-
-Saya di sini untuk mendukung perjalanan belajar Anda! Ada yang bisa saya bantu hari ini? 😊`
-        
-        // Add to memory
-        if (includeMemory) {
-          this.addToMemory(question, fallbackAnswer, [], 0)
-        }
-        
-        return {
-          answer: fallbackAnswer,
-          sources: [],
-          confidence: 0
-        }
+      } else {
+        confidence = this.calculateConfidence(similarDocs)
       }
 
-      // Format sources
-      const sources = similarDocs.map(doc => ({
+      // Format sources (if any)
+      const sources = docs.map(doc => ({
         title: doc.title,
         content: doc.text.substring(0, 200) + '...',
         category: doc.category,
         similarity: (doc as KnowledgeVector & { score?: number }).score || 0
       }))
 
-      // Generate answer based on retrieved context
-      const answer = await this.generateAnswer(question, similarDocs, includeMemory)
-      const confidence = this.calculateConfidence(similarDocs)
+      // Generate answer (LLM will handle both cases: with or without context)
+      const answer = await this.generateAnswer(question, docs, includeMemory)
 
       // Add to memory
       if (includeMemory) {
@@ -228,41 +177,15 @@ Saya di sini untuk mendukung perjalanan belajar Anda! Ada yang bisa saya bantu h
       let answer = ''
       
       if (similarDocs.length === 0) {
-        // Check if it's a basic greeting or casual question
-        const isBasicGreeting = this.isBasicGreeting(question)
-        
         // Fallback to text search
         const textResults = await this.vectorDB.textSearch(question, limit)
         if (textResults.length > 0) {
           docs = textResults
           confidence = 50 // Lower confidence for text search
-        } else if (isBasicGreeting) {
-          docs = []
-          confidence = 80 // High confidence for basic greetings
         } else {
-          // No relevant docs found and not a greeting
-          const fallbackAnswer = `Maaf, saya tidak menemukan informasi spesifik untuk pertanyaan Anda di knowledge base saat ini. 
-
-Bisakah Anda:
-
-• Mencoba kata kunci yang berbeda?
-• Memberikan lebih detail tentang topik yang Anda tanyakan?
-• Atau mungkin saya bisa membantu dengan topik pembelajaran lainnya?
-
-Saya di sini untuk mendukung perjalanan belajar Anda! Ada yang bisa saya bantu hari ini? 😊`
-          
-          // Add to memory
-          if (includeMemory) {
-            this.addToMemory(question, fallbackAnswer, [], 0)
-          }
-          
-          yield {
-            chunk: fallbackAnswer,
-            sources: [],
-            confidence: 0,
-            isComplete: true
-          }
-          return
+          // No relevant knowledge found - let LLM answer with general knowledge
+          docs = []
+          confidence = 30 // General knowledge confidence
         }
       } else {
         confidence = this.calculateConfidence(similarDocs)
@@ -364,27 +287,23 @@ CRITICAL INSTRUCTION - UNDERSTANDING AND SUMMARIZING:
 🚨 NEVER copy or paste raw data from the knowledge base documents
 🚨 ALWAYS understand the content first, then provide a summary that directly answers the user's question
 🚨 Process the information and present it in your own words, tailored to what the user is asking
+🚨 **IMPORTANT**: If no knowledge base context is available, answer using your general knowledge as an educational assistant
+🚨 **NEVER refuse to answer** - always provide helpful educational content regardless of knowledge base availability
 
 RESPONSE INSTRUCTIONS:
-- READ and UNDERSTAND the provided documents thoroughly
-- IDENTIFY what specifically the user is asking for
-- SYNTHESIZE the information to directly answer their question
-- PROVIDE a clear, concise summary in natural language
-- NEVER include document metadata, raw text, or unfiltered content
-- If you have relevant knowledge base context, use it to provide detailed, accurate answers
-- If context is limited or not found, still provide general educational guidance and offer to help further
-- For greetings or casual conversations, respond naturally and warmly
+- **PRIMARY GOAL**: Answer the user's question helpfully and naturally
+- If knowledge base context is available: READ, UNDERSTAND, and SYNTHESIZE the information  
+- If no knowledge base context: Use your general educational knowledge to provide helpful content
+- For any question (academic, casual, greeting), provide a natural, helpful response
 - Answer in the same language as the question (Indonesian/English)
 - Be encouraging about learning and studying
-- If you're unsure, admit it honestly but still try to be helpful
 - Use conversation history to provide personalized and contextual responses
 - Reference previous topics when relevant to show understanding and continuity
 
 CONTEXT HANDLING:
-- When context is available: UNDERSTAND the materials and provide clear explanations
-- When context is limited: Provide general knowledge while noting limitations
-- When no context: Still be helpful with general educational support and guidance
-- Never refuse to answer due to lack of context - always try to assist in some way
+- **With context**: UNDERSTAND the knowledge base materials and provide clear explanations
+- **Without context**: Provide general educational knowledge while being transparent about the source
+- **Never refuse**: Always try to assist in some educational way, even for general questions
 - Use conversation history to understand follow-up questions and provide continuity
 
 FORMAT GUIDELINES:
@@ -466,19 +385,18 @@ TASK: Please provide a helpful general response based on your knowledge and enco
 
     // Fallback to simple answer if LLM fails
     if (docs.length === 0) {
-      // Check if it's a basic greeting
-      if (this.isBasicGreeting(question)) {
-        return `Halo! Senang bertemu dengan Anda. Saya GenEdu Agent, asisten pembelajaran AI yang siap membantu Anda belajar! 
+      // No knowledge base context - provide general educational response
+      return `Halo! Saya GenEdu Agent, asisten pembelajaran AI yang siap membantu Anda! 
 
-Saya bisa membantu dengan:
+Meskipun pertanyaan Anda tidak ada di knowledge base khusus kami, saya tetap bisa membantu dengan:
 
-• Menjelaskan konsep-konsep pembelajaran
-• Menjawab pertanyaan akademik
+• Menjawab pertanyaan akademik umum
+• Menjelaskan konsep-konsep pembelajaran  
 • Memberikan tips belajar
-• Membuat kuis dan latihan
+• Bantuan dengan tugas dan materi kuliah
+• Diskusi topik pendidikan
 
-Ada yang bisa saya bantu untuk pembelajaran Anda hari ini? 😊`
-      }
+Silakan tanyakan apa saja yang ingin Anda pelajari! 😊`
       
       return `Maaf, saya tidak menemukan informasi spesifik untuk pertanyaan Anda di knowledge base. Namun, saya tetap ingin membantu! 
 
@@ -551,27 +469,23 @@ CRITICAL INSTRUCTION - UNDERSTANDING AND SUMMARIZING:
 🚨 NEVER copy or paste raw data from the knowledge base documents
 🚨 ALWAYS understand the content first, then provide a summary that directly answers the user's question
 🚨 Process the information and present it in your own words, tailored to what the user is asking
+🚨 **IMPORTANT**: If no knowledge base context is available, answer using your general knowledge as an educational assistant
+🚨 **NEVER refuse to answer** - always provide helpful educational content regardless of knowledge base availability
 
 RESPONSE INSTRUCTIONS:
-- READ and UNDERSTAND the provided documents thoroughly
-- IDENTIFY what specifically the user is asking for
-- SYNTHESIZE the information to directly answer their question
-- PROVIDE a clear, concise summary in natural language
-- NEVER include document metadata, raw text, or unfiltered content
-- If you have relevant knowledge base context, use it to provide detailed, accurate answers
-- If context is limited or not found, still provide general educational guidance and offer to help further
-- For greetings or casual conversations, respond naturally and warmly
+- **PRIMARY GOAL**: Answer the user's question helpfully and naturally
+- If knowledge base context is available: READ, UNDERSTAND, and SYNTHESIZE the information  
+- If no knowledge base context: Use your general educational knowledge to provide helpful content
+- For any question (academic, casual, greeting), provide a natural, helpful response
 - Answer in the same language as the question (Indonesian/English)
 - Be encouraging about learning and studying
-- If you're unsure, admit it honestly but still try to be helpful
 - Use conversation history to provide personalized and contextual responses
 - Reference previous topics when relevant to show understanding and continuity
 
 CONTEXT HANDLING:
-- When context is available: UNDERSTAND the materials and provide clear explanations
-- When context is limited: Provide general knowledge while noting limitations
-- When no context: Still be helpful with general educational support and guidance
-- Never refuse to answer due to lack of context - always try to assist in some way
+- **With context**: UNDERSTAND the knowledge base materials and provide clear explanations
+- **Without context**: Provide general educational knowledge while being transparent about the source
+- **Never refuse**: Always try to assist in some educational way, even for general questions
 - Use conversation history to understand follow-up questions and provide continuity
 
 FORMAT GUIDELINES:
@@ -696,29 +610,18 @@ TASK: Please provide a helpful general response based on your knowledge and enco
       let fallbackAnswer = ''
       
       if (docs.length === 0) {
-        // Check if it's a basic greeting
-        if (this.isBasicGreeting(question)) {
-          fallbackAnswer = `Halo! Senang bertemu dengan Anda. Saya GenEdu Agent, asisten pembelajaran AI yang siap membantu Anda belajar! 
+        // No knowledge base context - provide general educational response
+        fallbackAnswer = `Halo! Saya GenEdu Agent, asisten pembelajaran AI yang siap membantu Anda! 
 
-Saya bisa membantu dengan:
+Meskipun pertanyaan Anda tidak ada di knowledge base khusus kami, saya tetap bisa membantu dengan:
 
-• Menjelaskan konsep-konsep pembelajaran
-• Menjawab pertanyaan akademik  
+• Menjawab pertanyaan akademik umum
+• Menjelaskan konsep-konsep pembelajaran  
 • Memberikan tips belajar
-• Membuat kuis dan latihan
+• Bantuan dengan tugas dan materi kuliah
+• Diskusi topik pendidikan
 
-Ada yang bisa saya bantu untuk pembelajaran Anda hari ini? 😊`
-        } else {
-          fallbackAnswer = `Maaf, saya tidak menemukan informasi spesifik untuk pertanyaan Anda di knowledge base. Namun, saya tetap ingin membantu! 
-
-Bisakah Anda:
-
-- Memberikan lebih detail tentang topik yang Anda tanyakan?
-- Mencoba kata kunci yang berbeda?
-- Atau mungkin saya bisa membantu dengan topik pembelajaran lainnya?
-
-Saya di sini untuk mendukung perjalanan belajar Anda! 😊`
-        }
+Silakan tanyakan apa saja yang ingin Anda pelajari! 😊`
       } else {
         const topDoc = docs[0]
         fallbackAnswer = `Berdasarkan informasi yang tersedia tentang "${topDoc.title}":
@@ -835,38 +738,6 @@ A: ${conv.answer.substring(0, 200)}${conv.answer.length > 200 ? '...' : ''}
    */
   getMemory(): ConversationMemory[] {
     return [...RAGService.globalConversationMemory]
-  }
-
-  /**
-   * Check if the question is a basic greeting or casual conversation
-   */
-  private isBasicGreeting(question: string): boolean {
-    const lowerQuestion = question.toLowerCase().trim()
-    
-    // Common greetings and basic questions
-    const greetingPatterns = [
-      // Indonesian greetings
-      'halo', 'hai', 'hi', 'hello', 'selamat pagi', 'selamat siang', 'selamat sore', 'selamat malam',
-      'apa kabar', 'gimana', 'bagaimana', 'terima kasih', 'thanks', 'thank you',
-      
-      // Basic questions
-      'siapa kamu', 'who are you', 'apa itu', 'what is', 'bantuan', 'help',
-      'bisa bantu', 'can you help', 'tolong', 'please', 'maaf', 'sorry',
-      
-      // Simple responses
-      'ok', 'oke', 'baik', 'good', 'ya', 'yes', 'tidak', 'no', 'tidak apa-apa',
-      
-      // Basic conversation
-      'test', 'testing', 'coba', 'cobain'
-    ]
-    
-    // Check if question is very short (likely a greeting)
-    if (lowerQuestion.length <= 15) {
-      return true
-    }
-    
-    // Check if question contains greeting patterns
-    return greetingPatterns.some(pattern => lowerQuestion.includes(pattern))
   }
 }
 

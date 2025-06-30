@@ -122,6 +122,9 @@ export async function PUT(request: NextRequest) {
         { status: 401 }
       );
     }    const updateData = await request.json();
+    
+    // Debug log to see what data is being sent
+    console.log('Update data received:', JSON.stringify(updateData, null, 2));
 
     // Connect to database and get user
     await dbConnect();
@@ -196,11 +199,37 @@ export async function PUT(request: NextRequest) {
     Object.keys(updateData).forEach(key => {
       if (allowedUpdates.includes(key)) {
         if (key === 'preferences' || key === 'profile') {
-          // Merge nested objects
-          user[key] = { ...user[key], ...updateData[key] };
+          // Merge nested objects safely, filtering out undefined values
+          const updateObj = updateData[key];
+          if (updateObj && typeof updateObj === 'object') {
+            Object.keys(updateObj).forEach(nestedKey => {
+              if (updateObj[nestedKey] !== undefined) {
+                user[key][nestedKey] = updateObj[nestedKey];
+              }
+            });
+          }
         } else {
           user[key] = updateData[key];
-        }      }
+        }
+      }
+    });
+
+    // Final validation before saving
+    if (user.preferences) {
+      if (user.preferences.notifications === undefined || user.preferences.notifications === null) {
+        user.preferences.notifications = true;
+      }
+      if (user.preferences.theme === undefined || user.preferences.theme === null) {
+        user.preferences.theme = 'light';
+      }
+      if (user.preferences.language === undefined || user.preferences.language === null) {
+        user.preferences.language = 'id';
+      }
+    }
+
+    console.log('User data before save:', {
+      preferences: user.preferences,
+      profile: user.profile
     });
 
     // Save the user (this includes both field initialization and updates)
