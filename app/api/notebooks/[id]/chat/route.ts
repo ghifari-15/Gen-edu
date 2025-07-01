@@ -6,6 +6,22 @@ import { Mistral } from '@mistralai/mistralai'
 import { ChatOpenAI } from "@langchain/openai"
 import { HumanMessage, SystemMessage, AIMessage } from "@langchain/core/messages"
 
+/**
+ * Notebook Chat API - Serverless-Compatible OCR Processing
+ * 
+ * This API handles PDF upload and chat functionality for notebooks.
+ * ✅ SERVERLESS-COMPATIBLE: Uses file buffers only, no local storage
+ * ✅ VERCEL-READY: No file system dependencies
+ * ✅ MEMORY-EFFICIENT: Processes files in memory and cleans up immediately
+ * 
+ * Features:
+ * - PDF upload via form data (no local storage)
+ * - OCR processing via Mistral API
+ * - Chat conversations with context from uploaded documents
+ * - Streaming responses for better UX
+ * - Automatic cleanup of temporary files
+ */
+
 const mistralClient = new Mistral({
   apiKey: process.env.MISTRAL_API_KEY
 })
@@ -118,77 +134,122 @@ export async function POST(
         return NextResponse.json({ error: 'Only PDF files are supported' }, { status: 400 })
       }
 
-      // Process OCR using Mistral
-      const fileBuffer = await file.arrayBuffer()
-      const uploadedFile = await mistralClient.files.upload({
-        file: {
-          fileName: file.name,
-          content: new Uint8Array(fileBuffer),
-        },
-        purpose: "ocr",
-      })
-
-      // Wait for file processing
-      await mistralClient.files.retrieve({
-        fileId: uploadedFile.id
-      })
-
-      // Get signed URL for OCR processing
-      const signedUrl = await mistralClient.files.getSignedUrl({
-        fileId: uploadedFile.id,
-      })
-
-      // Process OCR
-      const ocrResponse = await mistralClient.ocr.process({
-        model: "mistral-ocr-latest",
-        document: {
-          type: "document_url",
-          documentUrl: signedUrl.url,
-        }
-      })
-
-      const extractedText = ocrResponse.pages.map(page => page.markdown).join('\n\n')
-
-      if (!extractedText.trim()) {
-        return NextResponse.json({ error: 'No text could be extracted from the PDF' }, { status: 400 })
+      // Check file size (limit to 50MB for serverless environments)
+      const maxFileSize = 50 * 1024 * 1024 // 50MB
+      if (file.size > maxFileSize) {
+        return NextResponse.json({ 
+          error: 'File too large. Maximum size is 50MB' 
+        }, { status: 400 })
       }
 
-      // Find or create chat thread
-      let chatThread = await ChatThread.findOne({
-        notebookId,
-        userId: payload.userId
-      })
+      let uploadedFileId: string | null = null
 
-      if (!chatThread) {
-        const threadId = `thread_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-        chatThread = new ChatThread({
-          threadId,
-          userId: payload.userId,
-          notebookId,
-          messages: [],
-          uploadedFileContent: extractedText,
-          title: `Chat for ${file.name}`
-        })
-      } else {
-        // Update with new content
-        chatThread.uploadedFileContent = extractedText
-        chatThread.updatedAt = new Date()
-      }
-
-      await chatThread.save()
-
-      // Clean up uploaded file from Mistral
       try {
-        await mistralClient.files.delete({ fileId: uploadedFile.id })
-      } catch (cleanupError) {
-        console.error('Failed to cleanup uploaded file:', cleanupError)
-      }
+        console.log(`Processing PDF file: ${file.name} (${file.size} bytes)`)
 
-      return NextResponse.json({
-        success: true,
-        message: 'File uploaded and processed successfully',
-        threadId: chatThread.threadId
-      })
+        // Process OCR using Mistral (serverless-compatible - no local storage)
+        const fileBuffer = await file.arrayBuffer()
+        
+        // Upload directly to Mistral OCR service
+        const uploadedFile = await mistralClient.files.upload({
+          file: {
+            fileName: file.name,
+            content: new Uint8Array(fileBuffer),
+          },
+          purpose: "ocr",
+        })
+        
+        uploadedFileId = uploadedFile.id
+        console.log(`File uploaded to Mistral with ID: ${uploadedFileId}`)
+
+        // Wait for file processing with timeout
+        const maxWaitTime = 30000 // 30 seconds
+        const startTime = Date.now()
+        
+        while (Date.now() - startTime < maxWaitTime) {
+          try {
+            await mistralClient.files.retrieve({
+              fileId: uploadedFileId
+            })
+            break
+          } catch (error) {
+            // Wait a bit before retrying
+            await new Promise(resolve => setTimeout(resolve, 1000))
+          }
+        }
+
+        // Get signed URL for OCR processing
+        const signedUrl = await mistralClient.files.getSignedUrl({
+          fileId: uploadedFileId,
+        })
+
+        console.log('Starting OCR processing...')
+
+        // Process OCR
+        const ocrResponse = await mistralClient.ocr.process({
+          model: "mistral-ocr-latest",
+          document: {
+            type: "document_url",
+            documentUrl: signedUrl.url,
+          }
+        })
+
+        const extractedText = ocrResponse.pages.map(page => page.markdown).join('\n\n')
+
+        if (!extractedText.trim()) {
+          throw new Error('No text could be extracted from the PDF')
+        }
+
+        console.log(`OCR completed. Extracted ${extractedText.length} characters from ${ocrResponse.pages.length} pages`)
+
+        // Find or create chat thread
+        let chatThread = await ChatThread.findOne({
+          notebookId,
+          userId: payload.userId
+        })
+
+        if (!chatThread) {
+          const threadId = `thread_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+          chatThread = new ChatThread({
+            threadId,
+            userId: payload.userId,
+            notebookId,
+            messages: [],
+            uploadedFileContent: extractedText,
+            title: `Chat for ${file.name}`
+          })
+        } else {
+          // Update with new content
+          chatThread.uploadedFileContent = extractedText
+          chatThread.updatedAt = new Date()
+        }
+
+        await chatThread.save()
+
+        return NextResponse.json({
+          success: true,
+          message: 'File uploaded and processed successfully',
+          threadId: chatThread.threadId,
+          pagesProcessed: ocrResponse.pages.length,
+          charactersExtracted: extractedText.length
+        })
+
+      } catch (error) {
+        console.error('OCR processing failed:', error)
+        return NextResponse.json({ 
+          error: `Failed to process PDF: ${error instanceof Error ? error.message : 'Unknown error'}` 
+        }, { status: 500 })
+      } finally {
+        // Always clean up uploaded file from Mistral (even on error)
+        if (uploadedFileId) {
+          try {
+            await mistralClient.files.delete({ fileId: uploadedFileId })
+            console.log(`Cleaned up file: ${uploadedFileId}`)
+          } catch (cleanupError) {
+            console.error('Failed to cleanup uploaded file:', cleanupError)
+          }
+        }
+      }
     }
 
     // Handle chat message

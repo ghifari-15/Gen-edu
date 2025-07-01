@@ -1,15 +1,26 @@
-# Notebook Chat Integration
+# Notebook Chat Integration (Serverless-Compatible)
 
-This document describes the notebook chat system that allows users to upload PDFs, process them with OCR, and have conversations about the content.
+This document describes the notebook chat system that allows users to upload PDFs, process them with OCR, and have conversations about the content. **This system is fully serverless-compatible and works perfectly on Vercel.**
 
 ## Overview
 
 The notebook chat system provides:
-- PDF upload and OCR processing using Mistral
+- PDF upload and OCR processing using Mistral (serverless-compatible)
 - Conversational AI using LangChain and Claude Sonnet
 - Persistent chat history stored in MongoDB
 - Streaming responses for better UX
 - Notebook-specific chat threads
+- **No local file storage - perfect for Vercel deployment**
+
+## Serverless Architecture
+
+### Why It Works on Vercel
+
+✅ **Memory-Only Processing**: Uses file buffers, never writes to disk  
+✅ **External OCR**: Mistral API handles all PDF processing  
+✅ **Fast Execution**: Completes within serverless time limits  
+✅ **Auto-Cleanup**: No persistent files to manage  
+✅ **Scalable**: No local storage dependencies
 
 ## Architecture
 
@@ -32,14 +43,19 @@ The notebook chat system provides:
    - Links chat threads to specific notebooks
    - Stores OCR content from uploaded files
 
-### Data Flow
+### Data Flow (Serverless-Compatible)
 
-1. User uploads PDF file
-2. File is processed with Mistral OCR
-3. Extracted text is stored in ChatThread
-4. User sends chat messages
-5. LLM responds using stored context
-6. Conversation history is persisted
+1. User uploads PDF file to chat interface
+2. File is converted to buffer in memory (no local storage)
+3. Buffer is uploaded directly to Mistral OCR API
+4. Mistral processes PDF and returns extracted text
+5. Extracted text is stored in ChatThread MongoDB collection
+6. File is deleted from Mistral servers (auto-cleanup)
+7. User sends chat messages about the document
+8. LLM responds using stored context from extracted text
+9. Conversation history is persisted in MongoDB
+
+**Note**: No files are ever stored locally, making this perfect for Vercel deployment.
 
 ## API Endpoints
 
