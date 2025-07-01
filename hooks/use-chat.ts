@@ -16,12 +16,12 @@ export interface UseChatReturn {
   isLoading: boolean
   isStreaming: boolean
   threadId: string | null
-  sendMessage: (message: string, useReasoning?: boolean, useContext?: boolean) => Promise<void>
+  sendMessage: (message: string) => Promise<void>
   clearChat: () => void
   loadThread: (threadId: string) => Promise<void>
 }
 
-export function useChat(): UseChatReturn {
+export function useChat(options?: { useReasoning?: boolean }): UseChatReturn {
   const getCurrentTime = (): string => {
     const now = new Date()
     return now.toLocaleTimeString('en-US', { 
@@ -48,8 +48,10 @@ export function useChat(): UseChatReturn {
   const [isStreaming, setIsStreaming] = useState(false)
   const [threadId, setThreadId] = useState<string | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
-  const sendMessage = useCallback(async (message: string, useReasoning = false, useContext = true) => {
+  const sendMessage = useCallback(async (message: string) => {
     if (!message.trim() || isLoading || isStreaming) return
+
+    const useReasoning = options?.useReasoning || false
 
     const userMessage: ChatMessage = {
       id: generateId(),
@@ -83,98 +85,8 @@ export function useChat(): UseChatReturn {
 
       abortControllerRef.current = new AbortController()
 
-      // Try RAG system first for better knowledge-based responses
-      let response
-      try {
-        response = await fetch('/api/rag/query', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            query: message,
-            limit: 5,
-            stream: true
-          }),
-          signal: abortControllerRef.current.signal
-        })
-
-        if (response.ok && response.body) {
-          const reader = response.body.getReader()
-          const decoder = new TextDecoder()
-          
-          let accumulatedText = ''
-          let sources: any[] = []
-          let confidence = 0
-          
-          try {
-            while (true) {
-              const { done, value } = await reader.read()
-              if (done) break
-              
-              const chunk = decoder.decode(value)
-              const lines = chunk.split('\n')
-              
-              for (const line of lines) {
-                if (line.startsWith('data: ')) {
-                  const data = line.slice(6).trim()
-                  
-                  try {
-                    const parsed = JSON.parse(data)
-                    
-                    if (parsed.type === 'metadata') {
-                      sources = parsed.sources || []
-                      confidence = parsed.confidence || 0
-                    } else if (parsed.type === 'chunk' && parsed.content) {
-                      accumulatedText += parsed.content
-                      
-                      // Update the streaming message
-                      setMessages(prev => prev.map(msg => 
-                        msg.id === aiMessageId 
-                          ? { 
-                              ...msg, 
-                              text: accumulatedText,
-                              isStreaming: true
-                            }
-                          : msg
-                      ))
-                    } else if (parsed.type === 'complete') {
-                      // Final update
-                      setMessages(prev => prev.map(msg => 
-                        msg.id === aiMessageId 
-                          ? { 
-                              ...msg, 
-                              text: accumulatedText,
-                              isStreaming: false,
-                              thinking: confidence > 0 
-                                ? `Retrieved from ${sources.length} knowledge sources with ${Math.round(confidence)}% confidence`
-                                : undefined
-                            }
-                          : msg
-                      ))
-                      setIsLoading(false)
-                      setIsStreaming(false)
-                      return
-                    } else if (parsed.type === 'error') {
-                      throw new Error(parsed.content || 'RAG streaming error')
-                    }
-                  } catch (parseError) {
-                    // Skip invalid JSON lines
-                    continue
-                  }
-                }
-              }
-            }
-          } finally {
-            reader.releaseLock()
-          }
-        }
-      } catch (ragError) {
-        console.log('RAG failed, falling back to chat API:', ragError)
-      }
-
-      // Fallback to original chat API
-      response = await fetch('/api/chat', {
+      // Use chat API directly (no RAG for demo)
+      const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -182,8 +94,7 @@ export function useChat(): UseChatReturn {
         body: JSON.stringify({
           message,
           threadId,
-          useReasoning,
-          useContext
+          useReasoning
         }),
         signal: abortControllerRef.current.signal
       })
@@ -350,7 +261,7 @@ export function useChat(): UseChatReturn {
       setIsStreaming(false)
       abortControllerRef.current = null
     }
-  }, [isLoading, isStreaming, threadId])
+  }, [isLoading, isStreaming, threadId, options?.useReasoning])
 
   const clearChat = useCallback(() => {
     setMessages([{

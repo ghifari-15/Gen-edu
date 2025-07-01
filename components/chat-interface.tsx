@@ -3,29 +3,11 @@
 import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ArrowUp, Brain, Sparkles, RotateCcw, ChevronDown, ChevronUp, Expand, Database, Target } from "lucide-react"
+import { ArrowUp, Brain, Sparkles, RotateCcw, ChevronDown, ChevronUp, Expand } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useChat } from "@/hooks/use-chat"
 import { MarkdownRenderer } from "@/components/markdown-renderer"
 import { useRouter } from "next/navigation"
-
-// Context summary interface
-interface ContextSummary {
-  totalEntries: number
-  bySource: Record<string, number>
-  bySubject: Record<string, number>
-  averageScore: number
-}
-
-// Recent quiz interface
-interface RecentQuiz {
-  _id: string
-  title: string
-  metadata: {
-    score?: number
-    difficulty?: string
-  }
-}
 
 // ThinkingBar component for showing reasoning process
 function ThinkingBar({ thinking, isThinking }: { thinking?: string; isThinking?: boolean }) {
@@ -87,49 +69,17 @@ function ThinkingBar({ thinking, isThinking }: { thinking?: string; isThinking?:
 export function ChatInterface({ isFullScreen = false }: { isFullScreen?: boolean }) {
   const [input, setInput] = useState("")
   const [useReasoning, setUseReasoning] = useState(false)
-  const [useContext, setUseContext] = useState(false)
-  const [useMemory, setUseMemory] = useState(true)
-  const [showContextInfo, setShowContextInfo] = useState(false)
-  const [contextSummary, setContextSummary] = useState<ContextSummary | null>(null)
-  const [recentQuizzes, setRecentQuizzes] = useState<RecentQuiz[]>([])
   const chatContainerRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
 
-  const { messages, isLoading, isStreaming, sendMessage, clearChat } = useChat()
+  const { messages, isLoading, isStreaming, sendMessage, clearChat } = useChat({
+    useReasoning
+  })
 
   // Fetch recent quizzes on component mount
   useEffect(() => {
-    fetchRecentQuizzes()
+    // Remove fetching for demo - using system prompt instead
   }, [])
-
-  const fetchRecentQuizzes = async () => {
-    try {
-      const response = await fetch('/api/knowledge-base/recent?days=7&limit=5')
-      if (response.ok) {
-        const data = await response.json()
-        setRecentQuizzes(data.data || [])
-      }
-    } catch (error) {
-      console.error('Error fetching recent quizzes:', error)
-    }
-  }
-
-  // Fetch context summary on component mount
-  useEffect(() => {
-    fetchContextSummary()
-  }, [])
-
-  const fetchContextSummary = async () => {
-    try {
-      const response = await fetch('/api/knowledge-base/summary')
-      if (response.ok) {
-        const data = await response.json()
-        setContextSummary(data)
-      }
-    } catch (error) {
-      console.error('Error fetching context summary:', error)
-    }
-  }
 
   const scrollToBottom = (): void => {
     if (chatContainerRef.current) {
@@ -146,17 +96,6 @@ export function ChatInterface({ isFullScreen = false }: { isFullScreen?: boolean
     if (input.trim()) {
       sendMessage(input)
       setInput("")
-    }
-  }
-
-  const clearMemory = async () => {
-    try {
-      await fetch('/api/rag/query', {
-        method: 'DELETE'
-      })
-      console.log('Memory cleared successfully')
-    } catch (error) {
-      console.error('Failed to clear memory:', error)
     }
   }
 
@@ -194,32 +133,6 @@ export function ChatInterface({ isFullScreen = false }: { isFullScreen?: boolean
             >
               <Brain className="h-3 w-3 mr-1" />
               {useReasoning ? 'Reasoning' : 'Default'}
-            </Button>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setUseContext(!useContext)}
-              className={`text-xs ${
-                useContext 
-                  ? 'bg-blue-100 text-blue-800 hover:bg-blue-200' 
-                  : 'text-white/80 hover:text-white hover:bg-white/10'
-              }`}
-              title={useContext ? 'Quiz context enabled' : 'Quiz context disabled'}
-            >
-              <Database className="h-3 w-3 mr-1" />
-              {useContext ? 'Context' : 'No Context'}
-            </Button>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={clearMemory}
-              className="text-white/80 hover:text-white hover:bg-white/10"
-              title="Clear conversation memory"
-            >
-              <Target className="h-3 w-3 mr-1" />
-              Memory
             </Button>
 
             <Button
@@ -275,27 +188,6 @@ export function ChatInterface({ isFullScreen = false }: { isFullScreen?: boolean
                   <Brain className="h-4 w-4 mr-2 inline" />
                   Reasoning
                 </button>
-
-                <button
-                  onClick={() => setUseContext(!useContext)}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                    useContext 
-                      ? 'bg-blue-600 text-white shadow-md hover:bg-blue-700' 
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  <Database className="h-4 w-4 mr-2 inline" />
-                  Context
-                </button>
-
-                <button
-                  onClick={clearMemory}
-                  className="px-4 py-2 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all duration-200"
-                  title="Clear conversation memory"
-                >
-                  <Target className="h-4 w-4 mr-2 inline" />
-                  Memory
-                </button>
               </div>
 
               <button
@@ -309,70 +201,6 @@ export function ChatInterface({ isFullScreen = false }: { isFullScreen?: boolean
           </div>
         </div>
       )}
-
-      {/* Context Info Panel */}
-      <AnimatePresence>
-        {showContextInfo && contextSummary && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="px-4 py-3 bg-blue-50 border-b border-blue-200"
-          >
-            <div className="text-sm text-blue-800">
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-medium">Learning Context Available</span>
-                <span className="text-xs text-blue-600">Avg Score: {contextSummary.averageScore}%</span>
-              </div>
-              <div className="grid grid-cols-2 gap-4 text-xs">
-                <div>
-                  <span className="font-medium">Sources:</span>
-                  <div className="mt-1">
-                    {Object.entries(contextSummary.bySource).map(([source, count]) => (
-                      <div key={source} className="flex justify-between">
-                        <span className="capitalize">{source}:</span>
-                        <span>{count}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <span className="font-medium">Subjects:</span>
-                  <div className="mt-1">
-                    {Object.entries(contextSummary.bySubject).slice(0, 3).map(([subject, count]) => (
-                      <div key={subject} className="flex justify-between">
-                        <span className="capitalize">{subject}:</span>
-                        <span>{count}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              
-              {recentQuizzes.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-blue-200">
-                  <span className="font-medium text-blue-800">Recent Quizzes:</span>
-                  <div className="mt-2 space-y-1">
-                    {recentQuizzes.slice(0, 3).map((quiz) => (
-                      <div key={quiz._id} className="flex justify-between items-center text-xs">
-                        <span className="truncate flex-1">{quiz.title}</span>
-                        {quiz.metadata.score && (
-                          <span className={`ml-2 font-medium ${
-                            quiz.metadata.score >= 80 ? 'text-green-600' : 
-                            quiz.metadata.score >= 60 ? 'text-yellow-600' : 'text-red-600'
-                          }`}>
-                            {quiz.metadata.score}%
-                          </span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Messages */}
       <div 
@@ -551,9 +379,7 @@ export function ChatInterface({ isFullScreen = false }: { isFullScreen?: boolean
                         ? 'bg-gray-300 cursor-not-allowed' 
                         : useReasoning
                           ? 'bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white shadow-lg'
-                          : useContext
-                            ? 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg'
-                            : 'bg-gradient-to-r from-emerald-400 to-blue-500 hover:from-emerald-500 hover:to-blue-600 text-white shadow-lg'
+                          : 'bg-gradient-to-r from-emerald-400 to-blue-500 hover:from-emerald-500 hover:to-blue-600 text-white shadow-lg'
                     }`}
                   >
                     <ArrowUp className="h-5 w-5" />
@@ -580,25 +406,6 @@ export function ChatInterface({ isFullScreen = false }: { isFullScreen?: boolean
               <Brain className="h-4 w-4 mr-1 inline" />
               Reasoning
             </button>
-            <button
-              onClick={() => setUseContext(!useContext)}
-              className={`px-3 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                useContext 
-                  ? 'bg-blue-600 text-white shadow-md' 
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              <Database className="h-4 w-4 mr-1 inline" />
-              Context
-            </button>
-            <button
-              onClick={clearMemory}
-              className="px-3 py-2 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all duration-200"
-              title="Clear memory"
-            >
-              <Target className="h-4 w-4 mr-1 inline" />
-              Memory
-            </button>
           </div>
           
           {isStreaming && (
@@ -609,7 +416,7 @@ export function ChatInterface({ isFullScreen = false }: { isFullScreen?: boolean
                 <div className="w-2.5 h-2.5 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
               </div>
               <span className="font-medium">
-                {useReasoning ? 'Thinking deeply about your question...' : useContext ? 'Analyzing with your context...' : 'Typing a response...'}
+                {useReasoning ? 'Thinking deeply about your question...' : 'Typing a response...'}
               </span>
             </div>
           )}

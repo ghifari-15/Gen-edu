@@ -38,9 +38,9 @@ export function AdminKnowledgeBaseStats() {
         } else {
           // Default fallback data
           setStats({
-            totalEntries: 245,
+            totalEntries: 4,
             weeklyGrowth: 18.5,
-            activeUsers: 78,
+            activeUsers: 7,
             completionRate: 92,
             bySource: {
               'PDF Upload': 120,
@@ -62,7 +62,7 @@ export function AdminKnowledgeBaseStats() {
         setStats({
           totalEntries: 245,
           weeklyGrowth: 18.5,
-          activeUsers: 78,
+          activeUsers: 7,
           completionRate: 92,
           bySource: {
             'PDF Upload': 120,

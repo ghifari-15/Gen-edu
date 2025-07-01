@@ -4,7 +4,6 @@ import { ChatOpenAI } from '@langchain/openai'
 import { HumanMessage, AIMessage, BaseMessage, SystemMessage } from '@langchain/core/messages'
 import dbConnect from '@/lib/database/mongodb'
 import ChatThread from '@/lib/models/ChatThread'
-import { LLMContextProvider } from '@/lib/utils/llm-context'
 
 // Initialize LLM instances
 const defaultLLM = new ChatOpenAI({
@@ -40,7 +39,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
     }
 
-    const { message, threadId, useReasoning = false, useContext = true } = await request.json()
+    const { message, threadId, useReasoning = false } = await request.json()
 
     if (!message) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 })
@@ -70,38 +69,12 @@ export async function POST(request: NextRequest) {
         createdAt: new Date(),
         updatedAt: new Date()
       })
-    }// Get user's knowledge base context if requested
-    let context = '';
-    let contextUsed = false;
-    if (useContext) {
-      try {
-        // Prioritize recent quiz context for better RAG
-        context = await LLMContextProvider.getContextForUser(payload.userId, message, {
-          focusOnRecent: true,
-          recentDays: 14, // Look back 2 weeks for recent quizzes
-          maxTokens: 3500,
-          maxSources: 8
-        });
-        contextUsed = !!context;
-        
-        if (contextUsed) {
-          console.log(`Using recent quiz context for user ${payload.userId}, context length: ${context.length}`);
-        }
-      } catch (error) {
-        console.error('Error getting context:', error);
-        // Continue without context if error occurs - don't fail the entire request
-        context = '';
-        contextUsed = false;
-      }
-    }
-
-    // Add user message to thread (store original message)
+    }    // Add user message to thread
     chatThread.messages.push({
       role: 'user',
       content: message,
       timestamp: new Date(),
       metadata: {
-        contextUsed,
         useReasoning
       }
     })
@@ -113,28 +86,7 @@ export async function POST(request: NextRequest) {
         msg.role === 'user' 
           ? new HumanMessage(msg.content)
           : new AIMessage(msg.content)
-      )
-
-    // Create enhanced prompt with context for the current message
-    let enhancedMessage = message;
-    if (context) {
-      enhancedMessage = `LEARNING CONTEXT AVAILABLE:
-${context}
-
-USER QUESTION: ${message}
-
-INSTRUCTIONS: 
-- Use the learning materials above to provide personalized, context-aware responses
-- Reference specific quizzes, topics, or materials the user has studied when relevant
-- If the question relates to their learning history, acknowledge their progress and provide targeted guidance
-- If the question is general or unrelated to provided materials, still provide a comprehensive and helpful answer
-- Always maintain a friendly, encouraging tone regardless of context availability`;
-    }
-
-    // Replace the last user message with enhanced version for LLM processing
-    if (conversationHistory.length > 0 && conversationHistory[conversationHistory.length - 1] instanceof HumanMessage) {
-      conversationHistory[conversationHistory.length - 1] = new HumanMessage(enhancedMessage);
-    }    // Select LLM based on mode
+      )    // Select LLM based on mode
     const selectedLLM = useReasoning ? reasoningLLM : defaultLLM
 
     // Get current date and time for real-time context
@@ -151,8 +103,8 @@ INSTRUCTIONS:
       timeZone: 'Asia/Jakarta'
     })
 
-    // Create comprehensive system message based on mode and context availability
-    const baseSystemPrompt = useReasoning 
+    // Create system message based on reasoning mode
+    const systemPrompt = useReasoning 
       ? `You are GenEdu Agent, an advanced AI learning assistant with deep reasoning capabilities powered by cutting-edge AI technology. 
 
 CURRENT DATE & TIME: ${dateString}, pukul ${timeString} WIB
@@ -187,53 +139,32 @@ CAPABILITIES:
 - Personalized learning support and guidance
 - Study tips and learning strategies
 - Homework and assignment assistance
-- Educational resource recommendations`
+- Educational resource recommendations
 
-    const contextualSystemPrompt = contextUsed 
-      ? `${baseSystemPrompt}
+user info:
+User got final exam (UAS):
+Basic Statistics
+Kamis, 26 Juni 2025 (Projek)
+Interaksi Manusia dan Komputer
+Selasa, 1 Juli 2025, 10.30-12.30 (Presentasi)
+Software Engineering
+Wednesday, 2 July 2025, 1:00 - 3:30 (Presentation)
+Introduction to AI
+Rabu, 2 Juli 2025, 13.00-15.00 (Tertulis)
+Pengujian dan Penjaminan Kualitas Perangkat Lunak
+Wednesday, 2 July 2025 (Project)
+Object-oriented Programming
+Kamis, 3 Juli 2025 08.00-10.00 (Praktik)
+Operating System
+Jumat, 4 Juli 2025 08.00-10.00 (Presentasi)
 
-PERSONALIZED CONTEXT AVAILABLE:
-✅ You have access to this user's specific learning history, including:
-- Completed quizzes and their performance
-- Study materials they've engaged with
-- Previous learning activities and progress
-- Recent topics they've studied
 
-INSTRUCTIONS FOR CONTEXT USAGE:
-- Use this context to provide highly personalized responses
-- Reference their specific learning journey when relevant
-- Acknowledge their progress and areas of strength
-- Suggest improvements based on their actual performance
-- Connect new questions to their previous learning experiences
 
-RESPONSE APPROACH:
-- First, check if their question relates to their learning history
-- If related, provide context-aware, personalized guidance
-- If not related, still provide helpful general answers
-- Always be encouraging about their learning progress`
-
-      : `${baseSystemPrompt}
-
-CONTEXT LIMITATION:
-⚠️ No specific learning history available for this user at the moment.
-
-INSTRUCTIONS WITHOUT CONTEXT:
-- Provide general but high-quality educational support
-- Ask clarifying questions to better understand their needs
-- Offer to help them get started with tracking their learning journey
-- Be encouraging and motivating about beginning their learning path
-- Still answer all questions helpfully, even without personal context
-
-RESPONSE APPROACH:
-- Always respond helpfully, regardless of available context
-- For greetings, be warm and offer assistance
-- For academic questions, provide comprehensive general guidance
-- Suggest ways they can build their learning profile for better future assistance
-- Never refuse to answer due to lack of context - always try to help`;
+`
 
     // Prepare messages array
     const messages: BaseMessage[] = [
-      new SystemMessage(contextualSystemPrompt),
+      new SystemMessage(systemPrompt),
       ...conversationHistory
     ]
 
@@ -261,8 +192,7 @@ RESPONSE APPROACH:
               const data = JSON.stringify({ 
                 content,
                 threadId: chatThread.threadId,
-                model: useReasoning ? 'deepseek-reasoning' : 'claude-sonnet',
-                contextUsed
+                model: useReasoning ? 'deepseek-reasoning' : 'claude-sonnet'
               })
               controller.enqueue(encoder.encode(`data: ${data}\n\n`))
             }
@@ -275,7 +205,6 @@ RESPONSE APPROACH:
             timestamp: new Date(),
             metadata: {
               model: useReasoning ? 'deepseek-reasoning' : 'claude-sonnet',
-              contextUsed,
               responseLength: aiResponse.length
             }
           })
@@ -290,7 +219,7 @@ RESPONSE APPROACH:
           }
 
           // Send completion signal
-          controller.enqueue(encoder.encode(`data: {"done": true, "threadId": "${chatThread.threadId}", "contextUsed": ${contextUsed}}\n\n`))
+          controller.enqueue(encoder.encode(`data: {"done": true, "threadId": "${chatThread.threadId}"}\n\n`))
           controller.close()
         } catch (error) {
           console.error('Streaming error:', error)
@@ -385,8 +314,7 @@ export async function GET(request: NextRequest) {
         messageCount: thread.messages?.length || 0,
         lastMessage: thread.messages?.length > 0 
           ? thread.messages[thread.messages.length - 1].content.substring(0, 100) + '...'
-          : 'No messages',
-        hasContext: thread.messages?.some((msg: any) => msg.metadata?.contextUsed) || false
+          : 'No messages'
       }))
 
       return NextResponse.json({ success: true, threads: threadsWithSummary })
