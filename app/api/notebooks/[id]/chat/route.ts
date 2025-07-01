@@ -210,13 +210,36 @@ export async function POST(
 
         if (!chatThread) {
           const threadId = `thread_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+          
+          // Create a safe title that respects the 100-character database limit
+          const maxTitleLength = 100
+          const prefix = "Chat for "
+          
+          // Calculate available space for filename (accounting for prefix and potential "...")
+          const reservedSpace = prefix.length + 3 // 3 chars for "..."
+          const maxFilenameLength = maxTitleLength - reservedSpace
+          
+          let safeFilename = file.name
+          if (safeFilename.length > maxFilenameLength) {
+            safeFilename = safeFilename.substring(0, maxFilenameLength) + "..."
+          }
+          
+          let finalTitle = prefix + safeFilename
+          
+          // Final safety check and force truncation if needed
+          if (finalTitle.length > maxTitleLength) {
+            finalTitle = finalTitle.substring(0, maxTitleLength - 3) + "..."
+          }
+          
+          console.log(`Creating ChatThread with title: "${finalTitle}" (length: ${finalTitle.length})`)
+          
           chatThread = new ChatThread({
             threadId,
             userId: payload.userId,
             notebookId,
             messages: [],
             uploadedFileContent: extractedText,
-            title: `Chat for ${file.name}`
+            title: finalTitle
           })
         } else {
           // Update with new content
@@ -267,12 +290,20 @@ export async function POST(
 
     if (!chatThread) {
       const threadId = `thread_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      
+      // Create a safe title that respects the 100-character database limit
+      const maxTitleLength = 100
+      let safeTitle = message.substring(0, maxTitleLength - 3)
+      if (message.length > maxTitleLength - 3) {
+        safeTitle += '...'
+      }
+      
       chatThread = new ChatThread({
         threadId,
         userId: payload.userId,
         notebookId,
         messages: [],
-        title: message.substring(0, 50) + (message.length > 50 ? '...' : '')
+        title: safeTitle
       })
     }
 
